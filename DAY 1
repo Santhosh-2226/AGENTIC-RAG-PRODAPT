@@ -1,0 +1,87 @@
+📌 Day 1 – Problem Breakdown, Data Planning & Tool Design
+
+Day 1 was spent breaking down the assignment into concrete system components instead of jumping directly into coding.
+
+I started by analyzing the core requirement: building an agentic RAG system that can dynamically choose between multiple data sources. The key difference from a normal RAG pipeline is that the agent must decide which tool to use and when, rather than always retrieving from a single vector store.
+
+🔹 Understanding the System Requirements
+
+From the problem statement, I identified three mandatory capabilities:
+
+Semantic retrieval from unstructured documents
+Querying structured data (CSV/SQL)
+Fetching real-time information from web search
+
+Instead of treating these as features, I treated them as independent tools with strict input/output contracts, since the LLM will rely on tool descriptions to make decisions.
+
+🔹 Tool-Level Design (Done on Day 1)
+
+Before writing any code, I designed the interface of all three tools:
+
+search_docs
+Input: natural language query
+Output: top-k relevant chunks + source + page
+Planned using embeddings + vector store (FAISS/Chroma)
+query_data
+Input: structured query (SQL / natural language)
+Output: table or scalar value
+Decided to use pandas first (faster to iterate), with optional SQL abstraction later
+web_search
+Input: short query string
+Output: top results with URL + snippet
+Planned integration with Tavily / DuckDuckGo API
+
+The main focus here was making outputs consistent and predictable, since inconsistent tool outputs will break the agent reasoning later.
+
+🔹 Architecture Thinking (Important Part)
+
+Instead of thinking “LLM → answer”, I structured the system as:
+
+User Query → Agent Loop → Tool Selection → Tool Execution → Context Update → Final Answer
+
+The critical part is the agent loop, which must:
+
+Decide tool dynamically
+Track previous steps
+Stop after max 8 steps (hard constraint from assignment)
+
+I sketched a rough control flow using a simple loop:
+
+Step counter
+Tool decision logic
+Context accumulation
+Termination condition
+🔹 Data Planning (What I Decided)
+
+I also planned the dataset early to avoid rework:
+
+Unstructured → Annual reports / long documents
+Structured → CSV with financial metrics (multi-year data)
+Web → live search for recent updates
+
+The goal is to ensure:
+
+Queries require multi-tool reasoning, not just single retrieval
+Dataset supports both numerical + textual questions
+🔹 Key Decisions Taken
+Not using any black-box agent frameworks (as restricted)
+Keeping agent loop simple (<100 lines target)
+Prioritizing tool correctness before agent logic
+Planning trace logging from the beginning (for debugging + evaluation)
+🔹 Challenges Identified Early
+Tool selection ambiguity (LLM may choose wrong tool)
+Handling multi-step reasoning without loops
+Maintaining consistent output format across tools
+
+These will be addressed in later stages during agent implementation.
+
+🔹 Outcome of Day 1
+
+By the end of Day 1:
+
+Problem was fully decomposed into components
+Tool interfaces were clearly defined
+System architecture and flow were finalized
+Dataset strategy was planned
+
+This sets up Day 2 for actual implementation of individual tools.
