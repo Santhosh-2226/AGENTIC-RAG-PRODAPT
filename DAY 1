@@ -1,87 +1,41 @@
-📌 Day 1 – Problem Breakdown, Data Planning & Tool Design
+IPL AGENTIC RAG — DAY 1 PROGRESS
 
-Day 1 was spent breaking down the assignment into concrete system components instead of jumping directly into coding.
+--------------------------------------------------
 
-I started by analyzing the core requirement: building an agentic RAG system that can dynamically choose between multiple data sources. The key difference from a normal RAG pipeline is that the agent must decide which tool to use and when, rather than always retrieving from a single vector store.
+DAY 1 — PROBLEM UNDERSTANDING, ARCHITECTURE DESIGN & DATA INGESTION
 
-🔹 Understanding the System Requirements
+I started by understanding the actual problem requirement instead of directly jumping into coding. From the assignment, I realized that the goal was not to build a simple chatbot, but to design a system that can answer IPL queries in a reliable and grounded way.
 
-From the problem statement, I identified three mandatory capabilities:
+While analyzing the problem, I identified three major challenges:
+1. LLMs can hallucinate when data is missing  
+2. They can give outdated answers for current questions  
+3. They may use the wrong data source (for example, using text instead of structured data for statistics)  
 
-Semantic retrieval from unstructured documents
-Querying structured data (CSV/SQL)
-Fetching real-time information from web search
+Based on this, I framed my core approach:
+The system should decide what to retrieve, from where to retrieve, and when to retrieve.
 
-Instead of treating these as features, I treated them as independent tools with strict input/output contracts, since the LLM will rely on tool descriptions to make decisions.
+To solve this, I designed a multi-source architecture using:
+- Structured data (for statistics)
+- Unstructured data (for match reports and analysis)
+- Web data (for current/live information)
 
-🔹 Tool-Level Design (Done on Day 1)
+I then defined three core tools:
+- query_data for structured SQL-based queries  
+- search_docs for document-based retrieval  
+- web_search for real-time data  
 
-Before writing any code, I designed the interface of all three tools:
+After defining the architecture, I designed the pipeline flow from query input → processing → tool selection → answer generation. I also introduced temporal zoning (historical, corpus-present, current) to avoid stale answers.
 
-search_docs
-Input: natural language query
-Output: top-k relevant chunks + source + page
-Planned using embeddings + vector store (FAISS/Chroma)
-query_data
-Input: structured query (SQL / natural language)
-Output: table or scalar value
-Decided to use pandas first (faster to iterate), with optional SQL abstraction later
-web_search
-Input: short query string
-Output: top results with URL + snippet
-Planned integration with Tavily / DuckDuckGo API
+Once the design was clear, I moved to environment setup. I installed all required libraries for embeddings, retrieval, and data processing. I also configured API access for the language model and web search.
 
-The main focus here was making outputs consistent and predictable, since inconsistent tool outputs will break the agent reasoning later.
+Then I worked on data ingestion.
 
-🔹 Architecture Thinking (Important Part)
+For structured data, I downloaded IPL datasets and converted them into a SQLite database with tables for batting, bowling, match results, and players. This allows accurate statistical queries.
 
-Instead of thinking “LLM → answer”, I structured the system as:
+For unstructured data, I collected IPL PDFs such as match reports and season summaries. I extracted text, split it into meaningful chunks, and added metadata like source, page number, season, and entities. I also built retrieval indices using BM25 and FAISS.
 
-User Query → Agent Loop → Tool Selection → Tool Execution → Context Update → Final Answer
+For web data, I set up the web search tool to fetch live information with snippets, URLs, and publication dates.
 
-The critical part is the agent loop, which must:
+By the end of Day 1, the full architecture was designed, the environment was ready, and all data sources were ingested and prepared for retrieval.
 
-Decide tool dynamically
-Track previous steps
-Stop after max 8 steps (hard constraint from assignment)
-
-I sketched a rough control flow using a simple loop:
-
-Step counter
-Tool decision logic
-Context accumulation
-Termination condition
-🔹 Data Planning (What I Decided)
-
-I also planned the dataset early to avoid rework:
-
-Unstructured → Annual reports / long documents
-Structured → CSV with financial metrics (multi-year data)
-Web → live search for recent updates
-
-The goal is to ensure:
-
-Queries require multi-tool reasoning, not just single retrieval
-Dataset supports both numerical + textual questions
-🔹 Key Decisions Taken
-Not using any black-box agent frameworks (as restricted)
-Keeping agent loop simple (<100 lines target)
-Prioritizing tool correctness before agent logic
-Planning trace logging from the beginning (for debugging + evaluation)
-🔹 Challenges Identified Early
-Tool selection ambiguity (LLM may choose wrong tool)
-Handling multi-step reasoning without loops
-Maintaining consistent output format across tools
-
-These will be addressed in later stages during agent implementation.
-
-🔹 Outcome of Day 1
-
-By the end of Day 1:
-
-Problem was fully decomposed into components
-Tool interfaces were clearly defined
-System architecture and flow were finalized
-Dataset strategy was planned
-
-This sets up Day 2 for actual implementation of individual tools.
+--------------------------------------------------
