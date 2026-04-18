@@ -1,9 +1,5 @@
 # IPL Agentic RAG — Cricket Intelligence System
 
-<p align="center">
-  <img src="docs/architecture.png" alt="Architecture Diagram" width="900"/>
-</p>
-
 [![Architecture](https://img.shields.io/badge/System-Agentic%20RAG-0f766e.svg)](#)
 [![Reasoning](https://img.shields.io/badge/Focus-Grounded%20Reasoning-7c3aed.svg)](#)
 [![Retrieval](https://img.shields.io/badge/Design-Multi--Source%20Retrieval-2563eb.svg)](#)
