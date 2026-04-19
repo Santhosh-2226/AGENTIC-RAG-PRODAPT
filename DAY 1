@@ -1,0 +1,41 @@
+IPL AGENTIC RAG — DAY 1 PROGRESS
+
+--------------------------------------------------
+
+DAY 1 — PROBLEM UNDERSTANDING, ARCHITECTURE DESIGN & DATA INGESTION
+
+I started by understanding the actual problem requirement instead of directly jumping into coding. From the assignment, I realized that the goal was not to build a simple chatbot, but to design a system that can answer IPL queries in a reliable and grounded way.
+
+While analyzing the problem, I identified three major challenges:
+1. LLMs can hallucinate when data is missing  
+2. They can give outdated answers for current questions  
+3. They may use the wrong data source (for example, using text instead of structured data for statistics)  
+
+Based on this, I framed my core approach:
+The system should decide what to retrieve, from where to retrieve, and when to retrieve.
+
+To solve this, I designed a multi-source architecture using:
+- Structured data (for statistics)
+- Unstructured data (for match reports and analysis)
+- Web data (for current/live information)
+
+I then defined three core tools:
+- query_data for structured SQL-based queries  
+- search_docs for document-based retrieval  
+- web_search for real-time data  
+
+After defining the architecture, I designed the pipeline flow from query input → processing → tool selection → answer generation. I also introduced temporal zoning (historical, corpus-present, current) to avoid stale answers.
+
+Once the design was clear, I moved to environment setup. I installed all required libraries for embeddings, retrieval, and data processing. I also configured API access for the language model and web search.
+
+Then I worked on data ingestion.
+
+For structured data, I downloaded IPL datasets and converted them into a SQLite database with tables for batting, bowling, match results, and players. This allows accurate statistical queries.
+
+For unstructured data, I collected IPL PDFs such as match reports and season summaries. I extracted text, split it into meaningful chunks, and added metadata like source, page number, season, and entities. I also built retrieval indices using BM25 and FAISS.
+
+For web data, I set up the web search tool to fetch live information with snippets, URLs, and publication dates.
+
+By the end of Day 1, the full architecture was designed, the environment was ready, and all data sources were ingested and prepared for retrieval.
+
+--------------------------------------------------

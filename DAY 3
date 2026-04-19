@@ -1,0 +1,7 @@
+Today I focused on building the structured query layer for the IPL Agentic RAG system. After completing the ingestion pipeline and creating the SQLite database, the next step was to make the stored data usable for question answering. I developed SQL-based query functions to retrieve key cricket insights such as top run scorers, wicket takers, team wins, strike rates, and season-wise statistics.
+
+A major part of today’s work was validating whether the ingested data could support reliable downstream reasoning. I tested the database against multiple natural-language-style cricket questions and verified that joins, filters, and aggregations were producing logically correct outputs. This step was critical because an agentic system becomes useless if the structured data layer is inconsistent or produces misleading answers.
+
+I also started thinking from a system design perspective rather than just a coding perspective. Instead of allowing unrestricted SQL generation, I planned the query layer in a controlled way so that future agent components can call safe predefined functions. This reduces the risk of incorrect or unsafe queries and makes the backend more deterministic and debuggable.
+
+By the end of the day, the project moved from raw data storage to an actual queryable cricket intelligence backend, which is a necessary foundation before integrating retrieval, reasoning, and answer composition.
