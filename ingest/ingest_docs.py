@@ -14,4 +14,4 @@ with sqlite3.connect(DB_PATH) as conn:
         print(f"\n--- {table.upper()} ---")
         df = pd.read_sql(f"SELECT * FROM {table} LIMIT 5", conn)
         print(df)
-        print(f"Total rows: {len(pd.read_sql(f'SELECT * FROM {table}', conn))}")
+        print(f"Total rows: {len(pd.read_sql(f'SELECT * FROM {table}', conn))}") 
