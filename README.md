@@ -16,7 +16,7 @@
 
 ## 🔗 Repository
 
-👉 https://github.com/YOUR_USERNAME/ipl-agentic-rag
+👉 https://github.com/Santhosh-2226/AGENTIC-RAG-PRODAPT
 
 ---
 
