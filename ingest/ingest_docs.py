@@ -1,17 +1,36 @@
-import sqlite3
-import pandas as pd
+"""
+ingest/ingest_docs.py
 
-DB_PATH = "data/ipl.db"
+Build search index from OCRed PDFs.
+"""
 
-with sqlite3.connect(DB_PATH) as conn:
-    # List all tables
-    tables = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table'", conn)
-    print("Tables in database:")
-    print(tables)
-    
-    # View sample data from each table
-    for table in tables['name']:
-        print(f"\n--- {table.upper()} ---")
-        df = pd.read_sql(f"SELECT * FROM {table} LIMIT 5", conn)
-        print(df)
-        print(f"Total rows: {len(pd.read_sql(f'SELECT * FROM {table}', conn))}") 
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from tools.search_docs import ingest_documents
+
+
+def main():
+    print("=" * 60)
+    print("IPL OCRed Document Ingestion")
+    print("=" * 60)
+
+    try:
+        ok = ingest_documents()
+        if not ok:
+            print("\nIngestion failed.")
+            sys.exit(1)
+
+        print("\nIngestion complete.")
+        print("Now test retrieval:")
+        print("  python tools/search_docs.py")
+    except Exception as e:
+        print(f"\nERROR during ingestion: {e}")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

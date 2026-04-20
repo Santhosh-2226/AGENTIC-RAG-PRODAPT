@@ -1,0 +1,142 @@
+[
+  {
+    "id": 1,
+    "category": "single_tool",
+    "question": "Who scored the most runs in IPL 2023?",
+    "expected_tools": ["query_data"],
+    "expected_behavior": "Returns top run scorer with exact number from batting_stats table"
+  },
+  {
+    "id": 2,
+    "category": "single_tool",
+    "question": "Which bowler had the best economy rate in IPL 2022?",
+    "expected_tools": ["query_data"],
+    "expected_behavior": "Returns bowler name and economy rate from bowling_stats table"
+  },
+  {
+    "id": 3,
+    "category": "single_tool",
+    "question": "How many matches did Chennai Super Kings win in 2023?",
+    "expected_tools": ["query_data"],
+    "expected_behavior": "Returns win count from matches table filtered by team and season"
+  },
+  {
+    "id": 4,
+    "category": "single_tool",
+    "question": "What tactical changes did CSK use in IPL 2023?",
+    "expected_tools": ["search_docs"],
+    "expected_behavior": "Returns analyst commentary about CSK tactics from documents"
+  },
+  {
+    "id": 5,
+    "category": "single_tool",
+    "question": "What did analysts say about Virat Kohli's batting form in IPL 2022?",
+    "expected_tools": ["search_docs"],
+    "expected_behavior": "Returns narrative chunks about Kohli from 2022 documents"
+  },
+  {
+    "id": 6,
+    "category": "single_tool",
+    "question": "Who is the current captain of Mumbai Indians?",
+    "expected_tools": ["web_search"],
+    "expected_behavior": "Zone 3 detected. web_search fires first. Returns current captain with URL citation."
+  },
+  {
+    "id": 7,
+    "category": "multi_tool",
+    "question": "What was Virat Kohli's strike rate in IPL 2023 and what did analysts say about his form?",
+    "expected_tools": ["query_data", "search_docs"],
+    "expected_behavior": "query_data returns strike rate. search_docs returns commentary. Composed answer cites both."
+  },
+  {
+    "id": 8,
+    "category": "multi_tool",
+    "question": "Compare Jasprit Bumrah and Mohammed Shami's bowling statistics in IPL 2023",
+    "expected_tools": ["query_data", "search_docs"],
+    "expected_behavior": "Goal decomposer creates two player sub-goals. Single SQL with IN clause fetches both. search_docs adds commentary."
+  },
+  {
+    "id": 9,
+    "category": "multi_tool",
+    "question": "How many wickets did Rashid Khan take in IPL 2023 and what do reviews say about his performance?",
+    "expected_tools": ["query_data", "search_docs"],
+    "expected_behavior": "query_data for wicket count, search_docs for performance review, both cited in answer."
+  },
+  {
+    "id": 10,
+    "category": "multi_tool",
+    "question": "Which team had the best batting average in IPL 2022 and what was their winning strategy according to match reports?",
+    "expected_tools": ["query_data", "search_docs"],
+    "expected_behavior": "Stats from database. Strategy narrative from documents. Combined answer with dual citations."
+  },
+  {
+    "id": 11,
+    "category": "multi_tool",
+    "question": "What is MS Dhoni's current status and how did he perform statistically in IPL 2023?",
+    "expected_tools": ["web_search", "query_data"],
+    "expected_behavior": "Zone 3 on 'current'. web_search first for current status, query_data supplements with 2023 stats."
+  },
+  {
+    "id": 12,
+    "category": "multi_tool",
+    "question": "Why did Royal Challengers Bengaluru struggle to win the IPL title in 2023?",
+    "expected_tools": ["search_docs", "query_data"],
+    "expected_behavior": "Causal intent. search_docs for analyst explanation first. query_data supplements with stats."
+  },
+  {
+    "id": 13,
+    "category": "refusal",
+    "question": "Which team should I bet on to win IPL 2024?",
+    "expected_tools": [],
+    "expected_behavior": "Gatekeeper fires on 'bet'. Refused immediately. Zero tools called."
+  },
+  {
+    "id": 14,
+    "category": "refusal",
+    "question": "What is the airspeed velocity of an unladen swallow?",
+    "expected_tools": [],
+    "expected_behavior": "Out of scope. Gatekeeper fires. Polite refusal with no tools called."
+  },
+  {
+    "id": 15,
+    "category": "refusal",
+    "question": "Should I invest in IPL team franchises?",
+    "expected_tools": [],
+    "expected_behavior": "Gatekeeper catches 'invest'. Hard refusal. No tools called."
+  },
+  {
+    "id": 16,
+    "category": "refusal",
+    "question": "What happened in IPL 2019?",
+    "expected_tools": [],
+    "expected_behavior": "Year 2019 not in corpus (2022-2023 only). Gatekeeper refuses with clear explanation."
+  },
+  {
+    "id": 17,
+    "category": "edge_case",
+    "question": "Tell me everything about IPL 2023",
+    "expected_tools": [],
+    "expected_behavior": "Scope trap detected in normalizer. Agent asks user to narrow down. No tools called."
+  },
+  {
+    "id": 18,
+    "category": "edge_case",
+    "question": "How did Kohli do?",
+    "expected_tools": ["query_data"],
+    "expected_behavior": "Ambiguous. Normalizer assumes IPL 2023 batting. States assumption in answer. query_data called."
+  },
+  {
+    "id": 19,
+    "category": "edge_case",
+    "question": "Who was the best IPL player?",
+    "expected_tools": ["query_data"],
+    "expected_behavior": "Undefined 'best'. Normalizer picks most runs as proxy. States assumption. query_data called."
+  },
+  {
+    "id": 20,
+    "category": "edge_case",
+    "question": "What is Sachin Tendulkar's IPL 2023 century count?",
+    "expected_tools": ["query_data"],
+    "expected_behavior": "query_data runs. Returns zero results or player not found. Agent honestly reports absence of data rather than hallucinating."
+  }
+]

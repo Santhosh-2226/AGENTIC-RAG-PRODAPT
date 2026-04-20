@@ -59,8 +59,7 @@ def load_csvs(file_names: list[str]) -> pd.DataFrame:
         raise FileNotFoundError("No CSV files were found in data/raw")
 
     combined = pd.concat(frames, ignore_index=True, sort=False)
-    # Don't drop duplicates here - let each normalizer handle it
-    # combined = combined.drop_duplicates()
+    combined = combined.drop_duplicates()
     return combined
 
 
@@ -70,8 +69,8 @@ def normalize_matches(df: pd.DataFrame) -> pd.DataFrame:
     rename_map = {
         "id": "raw_id",
         "matchid": "raw_id",
-        "match_no": "match_number_field",  # Keep as separate to avoid confusion
-        "matchnumber": "matchnumber_field",  # Keep as separate
+        "match_no": "match_number_field",
+        "matchnumber": "matchnumber_field",
         "team_1": "team1",
         "team_2": "team2",
         "match_date": "date",
@@ -86,25 +85,21 @@ def normalize_matches(df: pd.DataFrame) -> pd.DataFrame:
     df = df.rename(columns={k: v for k, v in rename_map.items() if k in df.columns})
     df = df.loc[:, ~df.columns.duplicated(keep='first')]
 
-    # Create season-aware match_id by handling 2022 and 2023 separately
     def create_match_id(row):
         season = int(row['season'])
-        # 2022: use raw_id (numeric)
         if "raw_id" in row.index and pd.notna(row.get('raw_id')):
             try:
                 return f"{season}_{int(row['raw_id'])}"
             except (ValueError, TypeError):
                 pass
-        # 2023: use match_number or match_number_field
         for col in ["match_number", "match_number_field"]:
             if col in row.index and pd.notna(row.get(col)):
                 try:
                     return f"{season}_{int(row[col])}"
                 except (ValueError, TypeError):
                     pass
-        # Fallback
         return f"{season}_{row.name}"
-    
+
     df["match_id"] = df.apply(create_match_id, axis=1)
 
     keep_cols = [c for c in [
@@ -148,29 +143,24 @@ def normalize_balls(df: pd.DataFrame) -> pd.DataFrame:
     df = df.rename(columns={k: v for k, v in rename_map.items() if k in df.columns})
     df = df.loc[:, ~df.columns.duplicated(keep='first')]
 
-    # Ensure inning column exists
     if "inning" not in df.columns and "innings" not in df.columns:
         df["inning"] = 1
 
-    # Create season-aware match_id
     def create_match_id(row):
         season = int(row['season'])
-        # 2022: use raw_id (numeric)
         if "raw_id" in row.index and pd.notna(row.get('raw_id')):
             try:
                 return f"{season}_{int(row['raw_id'])}"
             except (ValueError, TypeError):
                 pass
-        # 2023: use match_number_field or match_number
         for col in ["match_number_field", "match_number"]:
             if col in row.index and pd.notna(row.get(col)):
                 try:
                     return f"{season}_{int(row[col])}"
                 except (ValueError, TypeError):
                     pass
-        # Fallback: use inning transitions
         return f"{season}_{row.name}"
-    
+
     df["match_id"] = df.apply(create_match_id, axis=1)
 
     keep_cols = [c for c in [
@@ -185,7 +175,6 @@ def normalize_balls(df: pd.DataFrame) -> pd.DataFrame:
 
     df = df[keep_cols].copy()
 
-    # Convert numeric columns safely - convert all to string first then to numeric
     for col in ["inning", "over", "ball", "batsman_runs", "extras", "total_runs", "is_wicket"]:
         if col in df.columns:
             try:
@@ -193,7 +182,6 @@ def normalize_balls(df: pd.DataFrame) -> pd.DataFrame:
             except Exception as e:
                 print(f"Warning: Could not convert {col} to numeric: {e}")
 
-    # Create total_runs if it doesn't exist or all zeros
     if "total_runs" not in df.columns or (df["total_runs"].sum() if "total_runs" in df.columns else 0) == 0:
         if "batsman_runs" in df.columns and "extras" in df.columns:
             df["total_runs"] = df["batsman_runs"] + df["extras"]
@@ -266,22 +254,28 @@ def save_to_sqlite(matches_df: pd.DataFrame, balls_df: pd.DataFrame) -> None:
         bowling_stats.to_sql("bowling_stats", conn, if_exists="replace", index=False)
         players.to_sql("players", conn, if_exists="replace", index=False)
 
-    print(f"SQLite database created at: {DB_PATH}")
-    print(f"matches rows: {len(matches_df)}")
-    print(f"deliveries rows: {len(balls_df)}")
-    print(f"batting_stats rows: {len(batting_stats)}")
-    print(f"bowling_stats rows: {len(bowling_stats)}")
-    print(f"players rows: {len(players)}")
+    print(f"\nSQLite database created at: {DB_PATH}")
+    print(f"  matches      : {len(matches_df)} rows")
+    print(f"  deliveries   : {len(balls_df)} rows")
+    print(f"  batting_stats: {len(batting_stats)} rows")
+    print(f"  bowling_stats: {len(bowling_stats)} rows")
+    print(f"  players      : {len(players)} rows")
 
 
 def main() -> None:
+    print("Loading match files...")
     match_df_raw = load_csvs(MATCH_FILES)
+    print("\nLoading ball-by-ball files...")
     balls_df_raw = load_csvs(BALL_FILES)
 
+    print("\nNormalizing matches...")
     matches_df = normalize_matches(match_df_raw)
+    print("Normalizing ball-by-ball data...")
     balls_df = normalize_balls(balls_df_raw)
 
+    print("\nSaving to SQLite...")
     save_to_sqlite(matches_df, balls_df)
+    print("\nDone. Run tools/query_data.py to verify.")
 
 
 if __name__ == "__main__":
