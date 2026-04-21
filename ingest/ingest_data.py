@@ -1,281 +1,406 @@
+import re
 import sqlite3
 from pathlib import Path
+
 import pandas as pd
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 RAW_DIR = BASE_DIR / "data" / "raw"
 DB_PATH = BASE_DIR / "data" / "ipl.db"
 
-MATCH_FILES = [
-    "each_match_records-2023.csv",
-    "IPL_Matches_2022.csv",
-]
-
-BALL_FILES = [
-    "each_ball_records-2023.csv",
-    "IPL_Ball_by_Ball_2022.csv",
-]
+BALL_2023_PATH = RAW_DIR / "each_ball_records-2023.csv"
+MATCH_2023_PATH = RAW_DIR / "each_match_records-2023.csv"
+BALL_2022_PATH = RAW_DIR / "IPL_Ball_by_Ball_2022.csv"
+MATCH_2022_PATH = RAW_DIR / "IPL_Matches_2022.csv"
 
 
-def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-    df.columns = (
-        df.columns.str.strip()
-        .str.lower()
-        .str.replace(" ", "_", regex=False)
-        .str.replace("-", "_", regex=False)
-        .str.replace("/", "_", regex=False)
-        .str.replace(r"[^a-z0-9_]", "", regex=True)
-    )
-    return df
+TEAM_NAME_MAP = {
+    "Royal Challengers Bangalore": "Royal Challengers Bengaluru",
+}
+
+PLAYER_NAME_MAP = {
+    "V Kohli": "Virat Kohli",
+    "F du Plessis": "Faf du Plessis",
+    "GJ Maxwell": "Glenn Maxwell",
+    "KD Karthik": "Dinesh Karthik",
+    "MK Lomror": "Mahipal Lomror",
+    "HV Patel": "Harshal Patel",
+    "JR Hazlewood": "Josh Hazlewood",
+    "JC Buttler": "Jos Buttler",
+    "SV Samson": "Sanju Samson",
+    "YBK Jaiswal": "Yashasvi Jaiswal",
+    "R Ashwin": "Ravichandran Ashwin",
+    "M Prasidh Krishna": "Prasidh Krishna",
+    "HH Pandya": "Hardik Pandya",
+    "WP Saha": "Wriddhiman Saha",
+    "DA Miller": "David Miller",
+    "R Sai Kishore": "Sai Kishore",
+    "LH Ferguson": "Lockie Ferguson",
+    "TA Boult": "Trent Boult",
+    "YS Chahal": "Yuzvendra Chahal",
+    "MS Wade": "Matthew Wade",
+    "R Tewatia": "Rahul Tewatia",
+}
 
 
-def add_season_if_missing(df: pd.DataFrame, filename: str) -> pd.DataFrame:
-    df = df.copy()
-    if "season" not in df.columns:
-        if "2023" in filename:
-            df["season"] = 2023
-        elif "2022" in filename:
-            df["season"] = 2022
-    return df
+def clean_text(value):
+    if pd.isna(value):
+        return None
+    value = str(value).strip()
+    value = re.sub(r"\s+", " ", value)
+    return value if value else None
 
 
-def load_csvs(file_names: list[str]) -> pd.DataFrame:
-    frames = []
-    for file_name in file_names:
-        file_path = RAW_DIR / file_name
-        if not file_path.exists():
-            print(f"Skipping missing file: {file_path}")
-            continue
-
-        df = pd.read_csv(file_path)
-        df = standardize_columns(df)
-        df = add_season_if_missing(df, file_name)
-        frames.append(df)
-
-        print(f"Loaded {file_name}: {df.shape[0]} rows, {df.shape[1]} columns")
-
-    if not frames:
-        raise FileNotFoundError("No CSV files were found in data/raw")
-
-    combined = pd.concat(frames, ignore_index=True, sort=False)
-    combined = combined.drop_duplicates()
-    return combined
+def clean_team_name(value):
+    value = clean_text(value)
+    if value is None:
+        return None
+    return TEAM_NAME_MAP.get(value, value)
 
 
-def normalize_matches(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-
-    rename_map = {
-        "id": "raw_id",
-        "matchid": "raw_id",
-        "match_no": "match_number_field",
-        "matchnumber": "matchnumber_field",
-        "team_1": "team1",
-        "team_2": "team2",
-        "match_date": "date",
-        "toss_won": "toss_winner",
-        "winning_team": "winner",
-        "won_by": "win_type",
-        "margin": "win_margin",
-        "man_of_match": "player_of_match",
-        "winner_runs": "win_by_runs",
-        "winner_wickets": "win_by_wickets",
-    }
-    df = df.rename(columns={k: v for k, v in rename_map.items() if k in df.columns})
-    df = df.loc[:, ~df.columns.duplicated(keep='first')]
-
-    def create_match_id(row):
-        season = int(row['season'])
-        if "raw_id" in row.index and pd.notna(row.get('raw_id')):
-            try:
-                return f"{season}_{int(row['raw_id'])}"
-            except (ValueError, TypeError):
-                pass
-        for col in ["match_number", "match_number_field"]:
-            if col in row.index and pd.notna(row.get(col)):
-                try:
-                    return f"{season}_{int(row[col])}"
-                except (ValueError, TypeError):
-                    pass
-        return f"{season}_{row.name}"
-
-    df["match_id"] = df.apply(create_match_id, axis=1)
-
-    keep_cols = [c for c in [
-        "match_id", "season", "date", "venue", "team1", "team2",
-        "toss_winner", "toss_decision", "winner",
-        "win_by_runs", "win_by_wickets", "player_of_match"
-    ] if c in df.columns]
-
-    if not keep_cols:
-        raise ValueError("No usable match columns found after normalization.")
-
-    df = df[keep_cols].drop_duplicates(subset=["match_id"])
-    return df
+def clean_player_name(value):
+    value = clean_text(value)
+    if value is None:
+        return None
+    return PLAYER_NAME_MAP.get(value, value)
 
 
-def normalize_balls(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
+def parse_2023_batsman_runs(outcome):
+    outcome = clean_text(outcome)
+    if outcome is None:
+        return 0
 
-    rename_map = {
-        "id": "raw_id",
-        "matchid": "raw_id",
-        "match_id": "raw_match_id",
-        "match_no": "match_number_field",
-        "matchnumber": "matchnumber_field",
-        "innings": "inning",
-        "overs": "over",
-        "ballnumber": "ball",
-        "batsman": "batter",
-        "battingteam": "batting_team",
-        "bowlingteam": "bowling_team",
-        "totalrun": "total_runs",
-        "total_run": "total_runs",
-        "batsman_run": "batsman_runs",
-        "extra_run": "extras",
-        "extras_run": "extras",
-        "iswicketdelivery": "is_wicket",
-        "iswicKetdelivery": "is_wicket",
-        "player_out": "player_dismissed",
-        "kind": "wicket_type",
-    }
-    df = df.rename(columns={k: v for k, v in rename_map.items() if k in df.columns})
-    df = df.loc[:, ~df.columns.duplicated(keep='first')]
+    outcome_lower = outcome.lower()
 
-    if "inning" not in df.columns and "innings" not in df.columns:
-        df["inning"] = 1
+    if outcome_lower == "w":
+        return 0
 
-    def create_match_id(row):
-        season = int(row['season'])
-        if "raw_id" in row.index and pd.notna(row.get('raw_id')):
-            try:
-                return f"{season}_{int(row['raw_id'])}"
-            except (ValueError, TypeError):
-                pass
-        for col in ["match_number_field", "match_number"]:
-            if col in row.index and pd.notna(row.get(col)):
-                try:
-                    return f"{season}_{int(row[col])}"
-                except (ValueError, TypeError):
-                    pass
-        return f"{season}_{row.name}"
+    if "lb" in outcome_lower or "leg bye" in outcome_lower:
+        return 0
 
-    df["match_id"] = df.apply(create_match_id, axis=1)
+    if outcome_lower.endswith("b") and "lb" not in outcome_lower:
+        return 0
 
-    keep_cols = [c for c in [
-        "match_id", "season", "inning", "over", "ball",
-        "batting_team", "bowling_team", "batter", "bowler",
-        "batsman_runs", "extras", "total_runs",
-        "is_wicket", "player_dismissed", "wicket_type"
-    ] if c in df.columns]
+    match = re.match(r"^(\d+)", outcome_lower)
+    if match:
+        return int(match.group(1))
 
-    if not keep_cols:
-        raise ValueError("No usable ball-by-ball columns found after normalization.")
-
-    df = df[keep_cols].copy()
-
-    for col in ["inning", "over", "ball", "batsman_runs", "extras", "total_runs", "is_wicket"]:
-        if col in df.columns:
-            try:
-                df[col] = pd.to_numeric(df[col].astype(str), errors="coerce").fillna(0)
-            except Exception as e:
-                print(f"Warning: Could not convert {col} to numeric: {e}")
-
-    if "total_runs" not in df.columns or (df["total_runs"].sum() if "total_runs" in df.columns else 0) == 0:
-        if "batsman_runs" in df.columns and "extras" in df.columns:
-            df["total_runs"] = df["batsman_runs"] + df["extras"]
-        elif "batsman_runs" in df.columns:
-            df["total_runs"] = df["batsman_runs"]
-        elif "extras" in df.columns:
-            df["total_runs"] = df["extras"]
-
-    return df
+    return 0
 
 
-def build_batting_stats(balls_df: pd.DataFrame) -> pd.DataFrame:
-    if "batter" not in balls_df.columns:
-        return pd.DataFrame()
-
-    grouped = (
-        balls_df.groupby(["season", "batter"], dropna=False)
-        .agg(
-            runs=("batsman_runs", "sum"),
-            balls_faced=("batter", "count"),
-            innings=("match_id", "nunique"),
-        )
-        .reset_index()
-    )
-    grouped["strike_rate"] = (grouped["runs"] / grouped["balls_faced"] * 100).round(2)
-    grouped = grouped.rename(columns={"batter": "player"})
-    return grouped
+def parse_2023_total_runs(score):
+    if pd.isna(score):
+        return 0
+    return int(score)
 
 
-def build_bowling_stats(balls_df: pd.DataFrame) -> pd.DataFrame:
-    if "bowler" not in balls_df.columns:
-        return pd.DataFrame()
+def parse_2023_extras_runs(total_runs, batsman_runs):
+    return max(int(total_runs) - int(batsman_runs), 0)
 
-    grouped = (
-        balls_df.groupby(["season", "bowler"], dropna=False)
-        .agg(
-            balls_bowled=("bowler", "count"),
-            runs_conceded=("total_runs", "sum"),
-            wickets=("is_wicket", "sum"),
-        )
-        .reset_index()
-    )
-    grouped["overs"] = (grouped["balls_bowled"] / 6).round(1)
-    grouped["economy"] = grouped.apply(
-        lambda row: round(row["runs_conceded"] / row["overs"], 2) if row["overs"] else 0,
+
+def parse_2023_is_wicket(outcome, comment):
+    outcome = clean_text(outcome)
+    comment = clean_text(comment)
+
+    outcome_lower = "" if outcome is None else outcome.lower()
+    comment_lower = "" if comment is None else comment.lower()
+
+    if outcome_lower == "w":
+        return 1
+
+    wicket_signals = [
+        " out,",
+        " c ",
+        " lbw ",
+        " run out",
+        " st ",
+        " b ",
+        " hit wicket",
+    ]
+    if any(signal in comment_lower for signal in wicket_signals):
+        return 1
+
+    return 0
+
+
+def parse_2023_dismissal_kind(outcome, comment):
+    if parse_2023_is_wicket(outcome, comment) == 0:
+        return None
+
+    comment = clean_text(comment)
+    comment_lower = "" if comment is None else comment.lower()
+
+    if "run out" in comment_lower:
+        return "run out"
+    if "lbw" in comment_lower:
+        return "lbw"
+    if "st " in comment_lower:
+        return "stumped"
+    if "hit wicket" in comment_lower:
+        return "hit wicket"
+    if "caught" in comment_lower or " c " in comment_lower:
+        return "caught"
+    if " bowled" in comment_lower or " b " in comment_lower:
+        return "bowled"
+
+    return "wicket"
+
+
+def parse_2023_player_out(comment, batter):
+    if parse_2023_is_wicket(None, comment) == 0:
+        return None
+    return clean_player_name(batter)
+
+
+def normalize_match_type_2022(match_number):
+    value = clean_text(match_number)
+    if value is None:
+        return None
+
+    value_lower = value.lower()
+    if "final" in value_lower:
+        return "Final"
+    if "eliminator" in value_lower:
+        return "Eliminator"
+    if "qualifier" in value_lower:
+        return value
+    return "Group"
+
+
+def load_2023_deliveries():
+    df = pd.read_csv(BALL_2023_PATH)
+
+    df["match_id"] = df["match_no"]
+    df["season"] = 2023
+    df["inning"] = df["inningno"]
+    df["over_number"] = pd.to_numeric(df["over"], errors="coerce").fillna(0).astype(float).astype(int)
+    df["ball_number"] = pd.to_numeric(df["ballnumber"], errors="coerce").fillna(0).astype(int)
+    df["over_decimal"] = pd.to_numeric(df["over"], errors="coerce")
+    df["batter"] = df["batter"].apply(clean_player_name)
+    df["bowler"] = df["bowler"].apply(clean_player_name)
+    df["comment"] = df["comment"].apply(clean_text)
+    df["batsman_runs"] = df["outcome"].apply(parse_2023_batsman_runs)
+    df["total_runs"] = df["score"].apply(parse_2023_total_runs)
+    df["extras_runs"] = df.apply(
+        lambda row: parse_2023_extras_runs(row["total_runs"], row["batsman_runs"]),
         axis=1,
     )
-    grouped = grouped.rename(columns={"bowler": "player"})
-    return grouped
+    df["is_wicket"] = df.apply(
+        lambda row: parse_2023_is_wicket(row["outcome"], row["comment"]),
+        axis=1,
+    )
+    df["dismissal_kind"] = df.apply(
+        lambda row: parse_2023_dismissal_kind(row["outcome"], row["comment"]),
+        axis=1,
+    )
+    df["player_out"] = df.apply(
+        lambda row: parse_2023_player_out(row["comment"], row["batter"]),
+        axis=1,
+    )
+    df["batting_team"] = None
+
+    final_cols = [
+        "match_id",
+        "season",
+        "inning",
+        "over_number",
+        "ball_number",
+        "over_decimal",
+        "batter",
+        "bowler",
+        "batsman_runs",
+        "extras_runs",
+        "total_runs",
+        "is_wicket",
+        "dismissal_kind",
+        "player_out",
+        "comment",
+        "batting_team",
+    ]
+    return df[final_cols].copy()
 
 
-def build_players_table(batting_df: pd.DataFrame, bowling_df: pd.DataFrame) -> pd.DataFrame:
-    batting_players = batting_df[["season", "player"]].copy() if not batting_df.empty else pd.DataFrame(columns=["season", "player"])
-    bowling_players = bowling_df[["season", "player"]].copy() if not bowling_df.empty else pd.DataFrame(columns=["season", "player"])
-    players = pd.concat([batting_players, bowling_players], ignore_index=True).drop_duplicates()
-    return players
+def load_2022_deliveries():
+    df = pd.read_csv(BALL_2022_PATH)
+
+    df["match_id"] = df["ID"]
+    df["season"] = 2022
+    df["inning"] = df["innings"]
+    df["over_number"] = pd.to_numeric(df["overs"], errors="coerce").fillna(0).astype(int)
+    df["ball_number"] = pd.to_numeric(df["ballnumber"], errors="coerce").fillna(0).astype(int)
+    df["over_decimal"] = df["over_number"] + (df["ball_number"] / 10.0)
+    df["batter"] = df["batter"].apply(clean_player_name)
+    df["bowler"] = df["bowler"].apply(clean_player_name)
+    df["batsman_runs"] = pd.to_numeric(df["batsman_run"], errors="coerce").fillna(0).astype(int)
+    df["extras_runs"] = pd.to_numeric(df["extras_run"], errors="coerce").fillna(0).astype(int)
+    df["total_runs"] = pd.to_numeric(df["total_run"], errors="coerce").fillna(0).astype(int)
+    df["is_wicket"] = pd.to_numeric(df["isWicketDelivery"], errors="coerce").fillna(0).astype(int)
+    df["dismissal_kind"] = df["kind"].apply(clean_text)
+    df["player_out"] = df["player_out"].apply(clean_player_name)
+    df["comment"] = None
+    df["batting_team"] = df["BattingTeam"].apply(clean_team_name)
+
+    final_cols = [
+        "match_id",
+        "season",
+        "inning",
+        "over_number",
+        "ball_number",
+        "over_decimal",
+        "batter",
+        "bowler",
+        "batsman_runs",
+        "extras_runs",
+        "total_runs",
+        "is_wicket",
+        "dismissal_kind",
+        "player_out",
+        "comment",
+        "batting_team",
+    ]
+    return df[final_cols].copy()
 
 
-def save_to_sqlite(matches_df: pd.DataFrame, balls_df: pd.DataFrame) -> None:
+def load_2023_matches():
+    df = pd.read_csv(MATCH_2023_PATH)
+
+    df["match_id"] = df["match_number"]
+    df["season"] = pd.to_numeric(df["season"], errors="coerce").fillna(2023).astype(int)
+    df["date"] = pd.to_datetime(df["date"], format="%d-%m-%Y", errors="coerce")
+    df["match_number"] = df["match_number"].astype(str)
+    df["match_type"] = df["match_type"].apply(clean_text)
+    df["venue"] = df["venue"].apply(clean_text)
+    df["city"] = df["location"].apply(clean_text)
+    df["team1"] = df["team1"].apply(clean_team_name)
+    df["team2"] = df["team2"].apply(clean_team_name)
+    df["toss_winner"] = df["toss_won"].apply(clean_team_name)
+    df["toss_decision"] = df["toss_decision"].apply(clean_text)
+    df["winner"] = df["winner"].apply(clean_team_name)
+
+    winner_runs = pd.to_numeric(df["winner_runs"], errors="coerce")
+    winner_wickets = pd.to_numeric(df["winner_wickets"], errors="coerce")
+
+    df["won_by"] = winner_runs.apply(lambda x: "runs" if pd.notna(x) and x > 0 else None)
+    df.loc[winner_wickets.notna() & (winner_wickets > 0), "won_by"] = "wickets"
+
+    df["margin"] = winner_runs
+    df.loc[winner_wickets.notna() & (winner_wickets > 0), "margin"] = winner_wickets
+
+    df["player_of_match"] = df["man_of_match"].apply(clean_player_name)
+
+    final_cols = [
+        "match_id",
+        "season",
+        "date",
+        "match_number",
+        "match_type",
+        "venue",
+        "city",
+        "team1",
+        "team2",
+        "toss_winner",
+        "toss_decision",
+        "winner",
+        "won_by",
+        "margin",
+        "player_of_match",
+    ]
+    return df[final_cols].copy()
+
+
+def load_2022_matches():
+    df = pd.read_csv(MATCH_2022_PATH)
+
+    df["match_id"] = df["ID"]
+    df["season"] = pd.to_numeric(df["Season"], errors="coerce").fillna(2022).astype(int)
+    df["date"] = pd.to_datetime(df["Date"], errors="coerce")
+    df["match_number"] = df["MatchNumber"].astype(str)
+    df["match_type"] = df["MatchNumber"].apply(normalize_match_type_2022)
+    df["venue"] = df["Venue"].apply(clean_text)
+    df["city"] = df["City"].apply(clean_text)
+    df["team1"] = df["Team1"].apply(clean_team_name)
+    df["team2"] = df["Team2"].apply(clean_team_name)
+    df["toss_winner"] = df["TossWinner"].apply(clean_team_name)
+    df["toss_decision"] = df["TossDecision"].apply(clean_text)
+    df["winner"] = df["WinningTeam"].apply(clean_team_name)
+    df["won_by"] = df["WonBy"].apply(clean_text)
+    df["margin"] = pd.to_numeric(df["Margin"], errors="coerce")
+    df["player_of_match"] = df["Player_of_Match"].apply(clean_player_name)
+
+    final_cols = [
+        "match_id",
+        "season",
+        "date",
+        "match_number",
+        "match_type",
+        "venue",
+        "city",
+        "team1",
+        "team2",
+        "toss_winner",
+        "toss_decision",
+        "winner",
+        "won_by",
+        "margin",
+        "player_of_match",
+    ]
+    return df[final_cols].copy()
+
+
+def create_indexes(conn):
+    index_statements = [
+        "CREATE INDEX IF NOT EXISTS idx_deliveries_season ON deliveries(season)",
+        "CREATE INDEX IF NOT EXISTS idx_deliveries_batter ON deliveries(batter)",
+        "CREATE INDEX IF NOT EXISTS idx_deliveries_bowler ON deliveries(bowler)",
+        "CREATE INDEX IF NOT EXISTS idx_deliveries_match_id ON deliveries(match_id)",
+        "CREATE INDEX IF NOT EXISTS idx_matches_season ON matches(season)",
+        "CREATE INDEX IF NOT EXISTS idx_matches_winner ON matches(winner)",
+        "CREATE INDEX IF NOT EXISTS idx_matches_match_type ON matches(match_type)",
+    ]
+    for stmt in index_statements:
+        conn.execute(stmt)
+
+
+def validate_input_files():
+    required = [
+        BALL_2023_PATH,
+        MATCH_2023_PATH,
+        BALL_2022_PATH,
+        MATCH_2022_PATH,
+    ]
+    missing = [str(path) for path in required if not path.exists()]
+    if missing:
+        raise FileNotFoundError(
+            "Missing required input files:\n" + "\n".join(missing)
+        )
+
+
+def main():
+    validate_input_files()
+
+    deliveries_2023 = load_2023_deliveries()
+    deliveries_2022 = load_2022_deliveries()
+    matches_2023 = load_2023_matches()
+    matches_2022 = load_2022_matches()
+
+    deliveries = pd.concat([deliveries_2022, deliveries_2023], ignore_index=True)
+    matches = pd.concat([matches_2022, matches_2023], ignore_index=True)
+
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-    batting_stats = build_batting_stats(balls_df)
-    bowling_stats = build_bowling_stats(balls_df)
-    players = build_players_table(batting_stats, bowling_stats)
-
     with sqlite3.connect(DB_PATH) as conn:
-        matches_df.to_sql("matches", conn, if_exists="replace", index=False)
-        balls_df.to_sql("deliveries", conn, if_exists="replace", index=False)
-        batting_stats.to_sql("batting_stats", conn, if_exists="replace", index=False)
-        bowling_stats.to_sql("bowling_stats", conn, if_exists="replace", index=False)
-        players.to_sql("players", conn, if_exists="replace", index=False)
+        deliveries.to_sql("deliveries", conn, if_exists="replace", index=False)
+        matches.to_sql("matches", conn, if_exists="replace", index=False)
+        create_indexes(conn)
 
-    print(f"\nSQLite database created at: {DB_PATH}")
-    print(f"  matches      : {len(matches_df)} rows")
-    print(f"  deliveries   : {len(balls_df)} rows")
-    print(f"  batting_stats: {len(batting_stats)} rows")
-    print(f"  bowling_stats: {len(bowling_stats)} rows")
-    print(f"  players      : {len(players)} rows")
-
-
-def main() -> None:
-    print("Loading match files...")
-    match_df_raw = load_csvs(MATCH_FILES)
-    print("\nLoading ball-by-ball files...")
-    balls_df_raw = load_csvs(BALL_FILES)
-
-    print("\nNormalizing matches...")
-    matches_df = normalize_matches(match_df_raw)
-    print("Normalizing ball-by-ball data...")
-    balls_df = normalize_balls(balls_df_raw)
-
-    print("\nSaving to SQLite...")
-    save_to_sqlite(matches_df, balls_df)
-    print("\nDone. Run tools/query_data.py to verify.")
+    print(f"SQLite database created at: {DB_PATH}")
+    print(f"deliveries rows: {len(deliveries)}")
+    print(f"matches rows: {len(matches)}")
+    print("\nDeliveries columns:")
+    print(deliveries.columns.tolist())
+    print("\nMatches columns:")
+    print(matches.columns.tolist())
 
 
 if __name__ == "__main__":

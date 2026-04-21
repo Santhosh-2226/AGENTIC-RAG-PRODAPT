@@ -1,164 +1,192 @@
 """
 search_docs.py
---------------
-Hybrid Reciprocal Rank Fusion (BM25 + FAISS) retrieval over the
-pre-built index.  Run standalone to smoke-test the index.
-
-Usage:
-    python tools/search_docs.py                  # runs built-in test queries
-    python tools/search_docs.py "your question"  # single ad-hoc query
+==============
+Hybrid retrieval (FAISS + BM25) + VERIFIED LLM answers
 """
 
-import json
-import pickle
-import re
-import sys
+from __future__ import annotations
+import pickle, re, sys
 from pathlib import Path
+from typing import Any
 
 import faiss
 import numpy as np
+from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer
 
-# ── Paths ────────────────────────────────────────────────────────────────────
-BASE_DIR  = Path(__file__).resolve().parent.parent
-INDEX_DIR = BASE_DIR / "data" / "index"
+# ── CONFIG ──────────────────────────────────────────────
+BASE_DIR    = Path(__file__).resolve().parent
+INDEX_DIR   = BASE_DIR / "data" / "index"
+FAISS_PATH  = INDEX_DIR / "faiss.index"
+BM25_PATH   = INDEX_DIR / "bm25.pkl"
+CHUNKS_PATH = INDEX_DIR / "chunks.json"
 
-# ── Embedding model (must match ingest_docs.py) ───────────────────────────────
+EMBED_MODEL = "all-MiniLM-L6-v2"
+DEBUG = True   # 🔥 TURN ON/OFF DEBUG HERE
+
 _model: SentenceTransformer | None = None
 
-
-def _get_model() -> SentenceTransformer:
+def get_model():
     global _model
     if _model is None:
-        _model = SentenceTransformer("all-MiniLM-L6-v2")
+        _model = SentenceTransformer(EMBED_MODEL)
     return _model
 
+# ────────────────────────────────────────────────────────
+# LOAD INDEX
+# ────────────────────────────────────────────────────────
+_cache: dict[str, Any] = {}
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
-def tokenize(text: str) -> list[str]:
-    return re.findall(r"[a-z0-9]+", text.lower())
+def load_index():
+    if _cache:
+        return _cache["faiss"], _cache["chunks"], _cache["bm25"]
 
-
-def _index_ready() -> bool:
-    needed = [
-        INDEX_DIR / "faiss.index",
-        INDEX_DIR / "chunks.json",
-        INDEX_DIR / "bm25.pkl",
-    ]
-    return all(p.exists() for p in needed)
-
-
-def load_index() -> tuple:
-    if not _index_ready():
-        raise FileNotFoundError(
-            f"Index not found in {INDEX_DIR}. "
-            "Run  python ingest/ingest_docs.py  first."
-        )
-
-    faiss_index = faiss.read_index(str(INDEX_DIR / "faiss.index"))
-
-    with open(INDEX_DIR / "chunks.json", encoding="utf-8") as f:
+    import json
+    fi = faiss.read_index(str(FAISS_PATH))
+    with open(CHUNKS_PATH, "r", encoding="utf-8") as f:
         chunks = json.load(f)
-
-    with open(INDEX_DIR / "bm25.pkl", "rb") as f:
+    with open(BM25_PATH, "rb") as f:
         bm25 = pickle.load(f)
 
-    return faiss_index, chunks, bm25
+    _cache["faiss"], _cache["chunks"], _cache["bm25"] = fi, chunks, bm25
+    return fi, chunks, bm25
 
+# ────────────────────────────────────────────────────────
+# UTILS
+# ────────────────────────────────────────────────────────
+def tokenize(text: str):
+    return re.findall(r"[a-z0-9]+", text.lower())
 
-# ── Core search ───────────────────────────────────────────────────────────────
-def search(
-    query: str,
-    top_k: int    = 3,
-    bm25_k: int   = 15,
-    faiss_k: int  = 15,
-    rrf_k: int    = 60,       # RRF smoothing constant (standard = 60)
-) -> list[dict]:
-    """
-    Hybrid Reciprocal Rank Fusion:
-      score(doc) = Σ  1 / (rrf_k + rank_in_list)
-    over the BM25 top-k and FAISS top-k lists.
+# ────────────────────────────────────────────────────────
+# SEARCH
+# ────────────────────────────────────────────────────────
+def search(query, top_k=5):
+    fi, chunks, bm25 = load_index()
+    model = get_model()
 
-    Returns a list of dicts:  {"text": ..., "source": ..., "score": ...}
-    """
-    faiss_index, chunks, bm25 = load_index()
-    model = _get_model()
-
-    # ── BM25 ranking ────────────────────────────────────────────────────────
+    # BM25
     bm25_scores = bm25.get_scores(tokenize(query))
-    bm25_top    = np.argsort(bm25_scores)[::-1][:bm25_k].tolist()
+    bm25_top = np.argsort(bm25_scores)[::-1][:20]
 
-    # ── FAISS ranking ────────────────────────────────────────────────────────
-    q_emb = model.encode([query])
-    q_emb = np.array(q_emb, dtype="float32")
+    # FAISS
+    q_emb = model.encode([query], convert_to_numpy=True).astype("float32")
     faiss.normalize_L2(q_emb)
-    _, faiss_hits = faiss_index.search(q_emb, faiss_k)
-    faiss_top     = faiss_hits[0].tolist()
+    _, hits = fi.search(q_emb, 20)
+    faiss_top = hits[0]
 
-    # ── Reciprocal Rank Fusion ───────────────────────────────────────────────
-    rrf_scores: dict[int, float] = {}
+    # RRF fusion
+    scores = {}
+    for i, idx in enumerate(bm25_top):
+        scores[idx] = scores.get(idx, 0) + 1/(60+i)
+    for i, idx in enumerate(faiss_top):
+        scores[idx] = scores.get(idx, 0) + 1/(60+i)
 
-    for rank, idx in enumerate(bm25_top):
-        rrf_scores[idx] = rrf_scores.get(idx, 0.0) + 1.0 / (rrf_k + rank + 1)
-
-    for rank, idx in enumerate(faiss_top):
-        rrf_scores[idx] = rrf_scores.get(idx, 0.0) + 1.0 / (rrf_k + rank + 1)
-
-    # ── Build result list ────────────────────────────────────────────────────
-    ranked = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)[:top_k]
+    ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
 
     results = []
-    for idx, score in ranked:
+    for idx, score in ranked[:top_k]:
         chunk = chunks[idx]
-        results.append({
-            "text":   chunk["text"],
-            "source": chunk["source"],
-            "score":  round(score, 5),
-        })
+        chunk["score"] = round(score, 4)
+        results.append(chunk)
 
     return results
 
+# ────────────────────────────────────────────────────────
+# 🔥 VERIFIED LLM ANSWER
+# ────────────────────────────────────────────────────────
+def synthesize_answer(query, chunks):
+    try:
+        from groq import Groq
+        import os
+        from dotenv import load_dotenv
 
-# ── Pretty printer ────────────────────────────────────────────────────────────
-def print_results(query: str, results: list[dict], preview: int = 300) -> None:
-    print(f"\n{'─'*60}")
-    print(f"Query : {query}")
-    print(f"{'─'*60}")
+        load_dotenv()
+        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-    if not results:
-        print("  (no results)")
-        return
+        # Build context with source info
+        context = ""
+        for i, c in enumerate(chunks[:3], 1):
+            context += f"""
+[Source {i}]
+File: {c['source']}
+Page: {c['page']}
+Season: {c.get('season')}
 
-    for i, r in enumerate(results, start=1):
-        snippet = r["text"][:preview].replace("\n", " ")
-        if len(r["text"]) > preview:
-            snippet += "…"
-        print(f"\n  [{i}] {r['source']}  (score={r['score']})")
-        print(f"      {snippet}")
+{c['text'][:800]}
+"""
 
+        # STRICT PROMPT
+        prompt = f"""
+You MUST answer ONLY using the provided context.
 
-# ── Entry point ───────────────────────────────────────────────────────────────
+If the exact answer is NOT clearly present,
+reply ONLY: "Not found in documents."
+
+Also include source in this format:
+<answer> (Source: file_name, Page X)
+
+DO NOT use outside knowledge.
+
+Context:
+{context}
+
+Question: {query}
+
+Answer:
+"""
+
+        try:
+            response = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                temperature=0.2,
+                max_tokens=200,
+                messages=[{"role": "user", "content": prompt}],
+            )
+        except Exception:
+            response = client.chat.completions.create(
+                model="llama3-8b-8192",
+                temperature=0.2,
+                max_tokens=200,
+                messages=[{"role": "user", "content": prompt}],
+            )
+
+        return response.choices[0].message.content.strip()
+
+    except Exception as e:
+        return f"LLM failed: {e}"
+
+# ────────────────────────────────────────────────────────
+# CLI
+# ────────────────────────────────────────────────────────
+def main():
+    print("\n🏏 IPL RAG Search (Verified)\n")
+
+    while True:
+        q = input("Query > ").strip()
+        if q.lower() in ["exit", "quit"]:
+            break
+
+        print("\n🔍 Searching...")
+        results = search(q)
+
+        if not results:
+            print("⚠️ No results found\n")
+            continue
+
+        # 🔥 DEBUG: SHOW CHUNKS
+        if DEBUG:
+            print("\n📄 Retrieved Chunks:\n")
+            for i, r in enumerate(results, 1):
+                print(f"[{i}] {r['source']} | Page {r['page']} | Score: {r['score']}")
+                print(r["text"][:200])
+                print("-"*60)
+
+        print("\n🤖 Generating answer...")
+        answer = synthesize_answer(q, results)
+
+        print("\n" + "="*60)
+        print("💡 Answer:", answer)
+        print("="*60 + "\n")
+
 if __name__ == "__main__":
-    # If a CLI argument is given, run that single query; otherwise run defaults.
-    if len(sys.argv) > 1:
-        q = " ".join(sys.argv[1:])
-        print_results(q, search(q))
-    else:
-        test_queries = [
-            "IPL 2023 winner",
-            "IPL 2022 winner",
-            "top run scorer 2023",
-            "final match details",
-            "player of the match final",
-            "highest score in IPL 2023",
-        ]
-
-        print("\n" + "=" * 60)
-        print("Smoke-testing retrieval")
-        print("=" * 60)
-
-        for q in test_queries:
-            print_results(q, search(q))
-
-        print(f"\n{'='*60}")
-        print("Done.")
+    main()

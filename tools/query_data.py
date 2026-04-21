@@ -1,246 +1,323 @@
-"""
-tools/query_data.py
-
-Translates plain-English questions into safe SELECT-only SQL queries.
-Uses Claude Haiku to generate SQL, validates column names before running,
-returns exact numbers with source metadata for the citation binder.
-"""
-
-import sqlite3
 import json
 import re
+import sqlite3
 from pathlib import Path
-from anthropic import Anthropic
+from typing import Any, Dict, List, Optional, Tuple
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DB_PATH = BASE_DIR / "data" / "ipl.db"
 
-client = Anthropic()
-
-# ── Real schema injected into every SQL prompt ──────────────────────────────
-# This prevents hallucinated column names.
-SCHEMA = {
-    "matches": [
-        "match_id", "season", "date", "venue", "team1", "team2",
-        "toss_winner", "toss_decision", "winner",
-        "win_by_runs", "win_by_wickets", "player_of_match"
-    ],
-    "deliveries": [
-        "match_id", "season", "inning", "over", "ball",
-        "batting_team", "bowling_team", "batter", "bowler",
-        "batsman_runs", "extras", "total_runs",
-        "is_wicket", "player_dismissed", "wicket_type"
-    ],
-    "batting_stats": [
-        "season", "player", "runs", "balls_faced",
-        "innings", "strike_rate"
-    ],
-    "bowling_stats": [
-        "season", "player", "balls_bowled", "runs_conceded",
-        "wickets", "overs", "economy"
-    ],
-    "players": ["season", "player"]
+TEAM_ALIASES = {
+    "csk": "Chennai Super Kings",
+    "chennai": "Chennai Super Kings",
+    "mi": "Mumbai Indians",
+    "mumbai": "Mumbai Indians",
+    "rcb": "Royal Challengers Bengaluru",
+    "royal challengers bangalore": "Royal Challengers Bengaluru",
+    "royal challengers bengaluru": "Royal Challengers Bengaluru",
+    "bangalore": "Royal Challengers Bengaluru",
+    "bengaluru": "Royal Challengers Bengaluru",
+    "gt": "Gujarat Titans",
+    "gujarat": "Gujarat Titans",
+    "rr": "Rajasthan Royals",
+    "rajasthan": "Rajasthan Royals",
+    "srh": "Sunrisers Hyderabad",
+    "hyderabad": "Sunrisers Hyderabad",
+    "dc": "Delhi Capitals",
+    "delhi": "Delhi Capitals",
+    "pbks": "Punjab Kings",
+    "punjab": "Punjab Kings",
+    "kkr": "Kolkata Knight Riders",
+    "kolkata": "Kolkata Knight Riders",
+    "lsg": "Lucknow Super Giants",
+    "lucknow": "Lucknow Super Giants",
 }
 
-TABLE_HINTS = {
-    "batting": "batting_stats",
-    "bowling": "bowling_stats",
-    "matches": "matches",
-    "match": "matches",
-    "players": "players",
-    "player": "players",
-    "deliveries": "deliveries",
-    "ball": "deliveries",
+PLAYER_ALIASES = {
+    "kohli": "Virat Kohli",
+    "virat": "Virat Kohli",
+    "gill": "Shubman Gill",
+    "shubman": "Shubman Gill",
+    "dhoni": "MS Dhoni",
+    "ms dhoni": "MS Dhoni",
+    "rohit": "Rohit Sharma",
+    "bumrah": "Jasprit Bumrah",
+    "shami": "Mohammed Shami",
+    "surya": "Suryakumar Yadav",
+    "sky": "Suryakumar Yadav",
+    "faf": "Faf du Plessis",
+    "jadeja": "Ravindra Jadeja",
+    "hardik": "Hardik Pandya",
+    "rashid": "Rashid Khan",
+    "warner": "David Warner",
+    "rahul": "KL Rahul",
+    "kl rahul": "KL Rahul",
+    "buttler": "Jos Buttler",
+    "jaiswal": "Yashasvi Jaiswal",
+    "maxwell": "Glenn Maxwell",
+    "siraj": "Mohammed Siraj",
 }
 
-
-def _get_schema_string(hint: str = None) -> str:
-    """Build schema string to inject into LLM prompt."""
-    lines = []
-    tables = [TABLE_HINTS.get(hint, None)] if hint and hint in TABLE_HINTS else list(SCHEMA.keys())
-    for table in tables:
-        if table and table in SCHEMA:
-            cols = ", ".join(SCHEMA[table])
-            lines.append(f"  {table}({cols})")
-    return "\n".join(lines)
+WICKET_EXCLUDE_KINDS = (
+    "run out",
+    "retired hurt",
+    "retired out",
+    "obstructing the field",
+)
 
 
-def _validate_sql(sql: str) -> tuple[bool, str]:
-    """
-    Validates generated SQL before execution.
-    Only allows SELECT. Checks column names against real schema.
-    Returns (is_valid, error_message).
-    """
-    sql_clean = sql.strip().upper()
-
-    # Block anything that is not SELECT
-    forbidden = ["DROP", "DELETE", "INSERT", "UPDATE", "ALTER", "CREATE", "TRUNCATE"]
-    for word in forbidden:
-        if word in sql_clean:
-            return False, f"Forbidden SQL keyword: {word}"
-
-    if not sql_clean.startswith("SELECT"):
-        return False, "Only SELECT queries are allowed."
-
-    # Extract column references (basic check)
-    # We let SQLite catch actual column errors — this just blocks obvious hallucinations
-    for table, columns in SCHEMA.items():
-        if table.upper() in sql_clean:
-            # Check that referenced columns exist in that table
-            # Extract words after SELECT and before FROM
-            select_match = re.search(r'SELECT\s+(.*?)\s+FROM', sql_clean, re.DOTALL)
-            if select_match:
-                select_part = select_match.group(1)
-                if select_part.strip() == "*":
-                    continue
-                for col_ref in re.findall(r'\b([A-Z_]+)\b', select_part):
-                    col_lower = col_ref.lower()
-                    if (col_lower not in columns
-                            and col_lower not in ["count", "sum", "avg", "max", "min",
-                                                  "round", "distinct", "as", "null"]):
-                        # Not a fatal error, just warn — SQLite will catch it
-                        pass
-
-    return True, ""
-
-
-def _generate_sql(question: str, hint: str = None) -> str:
-    """Use Claude Haiku to convert NL question to SQL with real schema."""
-    schema_str = _get_schema_string(hint)
-
-    prompt = f"""You are a SQL expert for an IPL cricket database.
-Convert the question to a single SQLite SELECT query.
-
-Database schema:
-{schema_str}
-
-Rules:
-- Only use SELECT. Never DROP, DELETE, INSERT, UPDATE.
-- Only use column names exactly as shown in the schema.
-- For player name lookups, use LIKE '%name%' (case-insensitive with LOWER()).
-- Always include the season column in GROUP BY when aggregating across seasons.
-- Limit results to 20 rows unless the question asks for all.
-- Return ONLY the SQL query, no explanation, no markdown backticks.
-
-Question: {question}
-
-SQL:"""
-
-    response = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=300,
-        messages=[{"role": "user", "content": prompt}]
-    )
-
-    sql = response.content[0].text.strip()
-    # Strip markdown if model added it anyway
-    sql = re.sub(r"```sql|```", "", sql).strip()
-    return sql
-
-
-def _run_sql(sql: str) -> dict:
-    """Execute validated SQL against SQLite. Returns formatted result."""
+def get_connection() -> sqlite3.Connection:
     if not DB_PATH.exists():
+        raise FileNotFoundError(f"Database not found: {DB_PATH}")
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def normalize_text(text: str) -> str:
+    return re.sub(r"\s+", " ", text.strip().lower())
+
+
+def extract_year(question: str) -> Optional[int]:
+    match = re.search(r"\b(20\d{2})\b", question)
+    return int(match.group(1)) if match else None
+
+
+def resolve_team(question: str) -> Optional[str]:
+    q = normalize_text(question)
+    for alias, full_name in TEAM_ALIASES.items():
+        if re.search(rf"\b{re.escape(alias)}\b", q):
+            return full_name
+    return None
+
+
+def resolve_player(question: str) -> Optional[str]:
+    q = normalize_text(question)
+    for alias, full_name in PLAYER_ALIASES.items():
+        if re.search(rf"\b{re.escape(alias)}\b", q):
+            return full_name
+    return None
+
+
+def resolve_players_for_compare(question: str) -> List[str]:
+    q = normalize_text(question)
+    players: List[str] = []
+    for alias, full_name in PLAYER_ALIASES.items():
+        if re.search(rf"\b{re.escape(alias)}\b", q) and full_name not in players:
+            players.append(full_name)
+    return players[:2]
+
+
+def run_select(sql: str, params: Tuple = ()) -> Dict[str, Any]:
+    if not sql.strip().lower().startswith("select"):
+        raise ValueError("Only SELECT queries are allowed.")
+
+    with get_connection() as conn:
+        rows = conn.execute(sql, params).fetchall()
+
+    return {
+        "success": True,
+        "sql": sql.strip(),
+        "params": list(params),
+        "columns": list(rows[0].keys()) if rows else [],
+        "rows": [dict(row) for row in rows],
+        "row_count": len(rows),
+    }
+
+
+def classify_question(question: str) -> str:
+    q = normalize_text(question)
+
+    if "compare" in q:
+        return "compare_players_batting"
+
+    if "most runs" in q or "top scorer" in q or "highest run scorer" in q or "leading run scorer" in q:
+        return "top_run_scorer"
+
+    if "most wickets" in q or "top wicket" in q or "leading wicket" in q:
+        return "top_wicket_taker"
+
+    if ("winner" in q or "won" in q) and "ipl" in q:
+        return "season_winner"
+
+    if "highest score" in q or "highest individual score" in q:
+        return "highest_individual_score"
+
+    if "how many matches" in q and "win" in q:
+        return "team_wins"
+
+    if "strike rate" in q:
+        return "strike_rate"
+
+    if "economy" in q:
+        return "economy"
+
+    if "player of the match" in q or "man of the match" in q:
+        return "player_of_match"
+
+    if "final" in q and "winner" in q:
+        return "final_winner"
+
+    return "unknown"
+
+
+def build_sql(question: str) -> Tuple[Optional[str], Optional[Tuple], Optional[str]]:
+    qtype = classify_question(question)
+    year = extract_year(question)
+    team = resolve_team(question)
+    player = resolve_player(question)
+    players = resolve_players_for_compare(question)
+
+    if qtype == "top_run_scorer" and year:
+        sql = """
+        SELECT batter AS player, SUM(batsman_runs) AS total_runs
+        FROM deliveries
+        WHERE season = ?
+        GROUP BY batter
+        ORDER BY total_runs DESC
+        LIMIT 5
+        """
+        return sql, (year,), "deliveries"
+
+    if qtype == "top_wicket_taker" and year:
+        placeholders = ",".join(["?"] * len(WICKET_EXCLUDE_KINDS))
+        sql = f"""
+        SELECT bowler AS player, COUNT(*) AS wickets
+        FROM deliveries
+        WHERE season = ?
+          AND is_wicket = 1
+          AND (dismissal_kind IS NULL OR LOWER(dismissal_kind) NOT IN ({placeholders}))
+        GROUP BY bowler
+        ORDER BY wickets DESC
+        LIMIT 5
+        """
+        return sql, (year, *WICKET_EXCLUDE_KINDS), "deliveries"
+
+    if qtype in ("season_winner", "final_winner") and year:
+        sql = """
+        SELECT season, winner, match_number, match_type, venue, date
+        FROM matches
+        WHERE season = ?
+          AND LOWER(COALESCE(match_type, '')) LIKE '%final%'
+        LIMIT 1
+        """
+        return sql, (year,), "matches"
+
+    if qtype == "highest_individual_score" and year:
+        sql = """
+        SELECT batter AS player, MAX(runs_scored) AS highest_score
+        FROM (
+            SELECT season, match_id, batter, SUM(batsman_runs) AS runs_scored
+            FROM deliveries
+            WHERE season = ?
+            GROUP BY season, match_id, batter
+        ) t
+        GROUP BY batter
+        ORDER BY highest_score DESC
+        LIMIT 5
+        """
+        return sql, (year,), "deliveries"
+
+    if qtype == "team_wins" and year and team:
+        sql = """
+        SELECT winner AS team, COUNT(*) AS wins
+        FROM matches
+        WHERE season = ?
+          AND winner = ?
+        GROUP BY winner
+        """
+        return sql, (year, team), "matches"
+
+    if qtype == "strike_rate" and year and player:
+        sql = """
+        SELECT
+            batter AS player,
+            SUM(batsman_runs) AS runs,
+            COUNT(*) AS balls,
+            ROUND((SUM(batsman_runs) * 100.0) / COUNT(*), 2) AS strike_rate
+        FROM deliveries
+        WHERE season = ?
+          AND batter = ?
+        GROUP BY batter
+        """
+        return sql, (year, player), "deliveries"
+
+    if qtype == "economy" and year and player:
+        sql = """
+        SELECT
+            bowler AS player,
+            ROUND((SUM(total_runs) * 1.0) / (COUNT(*) / 6.0), 2) AS economy,
+            COUNT(*) AS balls_bowled,
+            SUM(total_runs) AS runs_conceded
+        FROM deliveries
+        WHERE season = ?
+          AND bowler = ?
+        GROUP BY bowler
+        """
+        return sql, (year, player), "deliveries"
+
+    if qtype == "player_of_match" and year:
+        sql = """
+        SELECT date, team1, team2, player_of_match
+        FROM matches
+        WHERE season = ?
+          AND LOWER(COALESCE(match_type, '')) LIKE '%final%'
+        LIMIT 1
+        """
+        return sql, (year,), "matches"
+
+    if qtype == "compare_players_batting" and year and len(players) == 2:
+        sql = """
+        SELECT
+            batter AS player,
+            SUM(batsman_runs) AS runs,
+            COUNT(*) AS balls,
+            ROUND((SUM(batsman_runs) * 100.0) / COUNT(*), 2) AS strike_rate
+        FROM deliveries
+        WHERE season = ?
+          AND batter IN (?, ?)
+        GROUP BY batter
+        ORDER BY runs DESC
+        """
+        return sql, (year, players[0], players[1]), "deliveries"
+
+    return None, None, None
+
+
+def query_data(question: str) -> Dict[str, Any]:
+    sql, params, source_table = build_sql(question)
+
+    if sql is None:
         return {
-            "error": f"Database not found at {DB_PATH}. Run: python ingest/ingest_data.py",
-            "sql": sql
+            "success": False,
+            "tool": "query_data",
+            "question": question,
+            "error": "Unsupported question for current rule set. Add a new template for this query type.",
         }
 
-    try:
-        with sqlite3.connect(DB_PATH) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.execute(sql)
-            rows = cursor.fetchall()
-            columns = [d[0] for d in cursor.description] if cursor.description else []
-
-        if not rows:
-            return {
-                "sql": sql,
-                "columns": columns,
-                "rows": [],
-                "row_count": 0,
-                "table": _extract_table(sql),
-                "note": "Query returned no results. The player/team may not exist in this corpus."
-            }
-
-        # Format rows as list of dicts
-        formatted_rows = [dict(zip(columns, row)) for row in rows]
-
-        # Scalar shortcut — if single value, surface it clearly
-        scalar = None
-        if len(formatted_rows) == 1 and len(columns) == 1:
-            scalar = formatted_rows[0][columns[0]]
-
-        return {
-            "sql": sql,
-            "columns": columns,
-            "rows": formatted_rows,
-            "row_count": len(formatted_rows),
-            "table": _extract_table(sql),
-            "scalar": scalar  # None if not single-value
-        }
-
-    except sqlite3.OperationalError as e:
-        return {
-            "error": f"SQL error: {str(e)}",
-            "sql": sql,
-            "hint": "Check that column names match the schema exactly."
-        }
-    except Exception as e:
-        return {"error": f"Unexpected error: {str(e)}", "sql": sql}
-
-
-def _extract_table(sql: str) -> str:
-    """Extract primary table name from SQL for citation binder."""
-    match = re.search(r'\bFROM\s+(\w+)', sql, re.IGNORECASE)
-    return match.group(1) if match else "unknown"
-
-
-def query_data(question: str, table_hint: str = None) -> dict:
-    """
-    Main entry point for the query_data tool.
-
-    Args:
-        question: Plain English question about IPL statistics.
-        table_hint: Optional hint — 'batting', 'bowling', 'matches', 'players'.
-
-    Returns:
-        dict with sql, columns, rows, row_count, table, scalar (if single value).
-    """
-    # Step 1: Generate SQL
-    sql = _generate_sql(question, table_hint)
-
-    # Step 2: Validate before running
-    valid, error_msg = _validate_sql(sql)
-    if not valid:
-        return {
-            "error": f"Generated SQL was unsafe: {error_msg}",
-            "sql": sql
-        }
-
-    # Step 3: Execute
-    result = _run_sql(sql)
+    result = run_select(sql, params)
+    result["tool"] = "query_data"
     result["question"] = question
+    result["source_table"] = source_table
     return result
 
 
-# ── Standalone test ──────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    tests = [
-        ("Who scored the most runs in IPL 2023?", "batting"),
-        ("What is Virat Kohli's strike rate in 2022?", "batting"),
-        ("Which bowler took the most wickets in 2023?", "bowling"),
-        ("How many matches did CSK win?", "matches"),
-    ]
-    for q, hint in tests:
-        print(f"\nQ: {q}")
-        result = query_data(q, hint)
-        if "error" in result:
-            print(f"  ERROR: {result['error']}")
-            print(f"  SQL:   {result['sql']}")
-        elif result.get("scalar") is not None:
-            print(f"  Answer: {result['scalar']} (from {result['table']})")
-        else:
-            print(f"  Rows: {result['row_count']}, Columns: {result['columns']}")
-            for row in result["rows"][:3]:
-                print(f"  {row}")
+    test_questions = [
+    "Who scored the second most runs in IPL 2023?",                  # aggregation variation
+    "How many runs did Kohli score in IPL 2023?",                    # player-specific
+    "Compare Kohli and Gill in IPL 2023",                            # comparison
+    "How many matches did Mumbai Indians win in IPL 2022?",          # team query
+    "Who scored the most runs in IPL 2025?",                         # out-of-range / no data
+    "What was Bumrah's economy in IPL 2023?",                        # edge (missing player data)
+    "Who is the best player in IPL 2023?",                           # ambiguous
+    "Who scored the most runs in IPL 2023 and what was his strike rate?",  # multi-intent
+    "Which team had the biggest margin victory in IPL 2023?",        # derived logic
+    "give data"                                                      # invalid input
+]
+
+    for q in test_questions:
+        print("\n" + "=" * 100)
+        print("Q:", q)
+        print(json.dumps(query_data(q), indent=2, default=str))
