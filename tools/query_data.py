@@ -285,7 +285,7 @@ def build_sql(question: str) -> Tuple[Optional[str], Optional[Tuple], Optional[s
     return None, None, None
 
 
-def query_data(question: str) -> Dict[str, Any]:
+def query_data(question: str, table_hint: Optional[str] = None) -> Dict[str, Any]:
     sql, params, source_table = build_sql(question)
 
     if sql is None:

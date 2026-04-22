@@ -4,110 +4,182 @@ main.py
 CLI entry point.
 Usage:
     python main.py "Who scored the most runs in IPL 2023?"
-    python main.py --eval          # run all 20 evaluation questions
-    python main.py --clear-cache   # clear the answer cache
+    python main.py --eval
+    python main.py --clear-cache
 """
 
-import sys
 import json
+import sys
+import time
 from pathlib import Path
 
 
-def run_single(question: str):
+def run_single(question: str) -> None:
     from agent import run_agent
-    from utils.tracer import Tracer
 
     print(f"\nQuestion: {question}")
-    print("-" * 60)
+    print("-" * 80)
 
     result = run_agent(question)
 
-    print(f"\nAnswer:\n{result['final_answer']}")
-    print(f"\nCitations:")
-    for c in result.get("citations", []):
-        print(f"  • {c}")
-    print(f"\nSteps used: {result['steps_used']}")
-    print(f"Status    : {result['status']}")
+    print("\nAnswer:")
+    print(result["final_answer"])
+
+    if result.get("citations"):
+        print("\nCitations:")
+        for citation in result["citations"]:
+            print(f"  - {citation}")
+
+    print(f"\nStatus    : {result['status']}")
+    print(f"Steps used: {result['steps_used']}")
+
     if result.get("uncertainty"):
         print(f"Confidence: {result['uncertainty']}")
-    if result.get("reflection"):
-        r = result["reflection"]
-        status = "PASSED" if r.get("passed") else "FAILED"
-        print(f"Reflection: {status}" + (f" — {r.get('issue', '')}" if not r.get("passed") else ""))
-    if result.get("telemetry"):
-        print("\nTool telemetry (Bonus B):")
-        for tool, stats in result["telemetry"].items():
-            print(f"  {tool}: {stats['calls']} calls, avg {stats['avg_latency_ms']}ms")
+
+    reflection = result.get("reflection")
+    if isinstance(reflection, dict):
+        status = "PASSED" if reflection.get("passed") else "FAILED"
+        issue = reflection.get("issue", "")
+        print(f"Reflection: {status}" + (f" — {issue}" if issue else ""))
+
+    telemetry = result.get("telemetry", {})
+    if telemetry:
+        print("\nTool telemetry:")
+        for tool_name, stats in telemetry.items():
+            calls = stats.get("calls", 0)
+            avg_latency_ms = stats.get("avg_latency_ms", 0)
+            print(f"  {tool_name}: {calls} calls, avg {avg_latency_ms} ms")
+
+    trace_path = result.get("trace_path")
+    if trace_path:
+        print(f"\nTrace saved: {trace_path}")
+
     print()
 
 
-def run_eval():
-    """Run all questions from eval/questions.json."""
+def run_eval() -> None:
     from agent import run_agent
-    import time
 
     eval_path = Path("eval/questions.json")
     if not eval_path.exists():
-        print("No eval/questions.json found. Create it first.")
+        print("Missing eval/questions.json")
         return
 
-    with open(eval_path) as f:
+    with eval_path.open("r", encoding="utf-8") as f:
         questions = json.load(f)
 
+    if not isinstance(questions, list) or not questions:
+        print("eval/questions.json must contain a non-empty list.")
+        return
+
     results = []
-    print(f"\nRunning evaluation: {len(questions)} questions\n{'='*60}")
+    print(f"\nRunning evaluation on {len(questions)} questions")
+    print("=" * 80)
 
-    for i, q_entry in enumerate(questions):
-        question = q_entry["question"]
-        expected_tools = q_entry.get("expected_tools", [])
-        category = q_entry.get("category", "unknown")
+    for idx, item in enumerate(questions, start=1):
+        if isinstance(item, str):
+            question = item
+            category = "unknown"
+            expected_tools = []
+        else:
+            question = item.get("question", "").strip()
+            category = item.get("category", "unknown")
+            expected_tools = item.get("expected_tools", [])
 
-        print(f"\n[{i+1}/{len(questions)}] [{category}] {question}")
+        if not question:
+            print(f"\n[{idx}] Skipping empty question entry.")
+            continue
+
+        print(f"\n[{idx}/{len(questions)}] [{category}] {question}")
         start = time.time()
         result = run_agent(question)
         elapsed = round(time.time() - start, 2)
 
-        # Check tool routing correctness
-        tools_used = result.get("telemetry", {}).keys()
-        routing_correct = all(t in tools_used for t in expected_tools) if expected_tools else None
+        actual_tools = [
+            tool_name
+            for tool_name, stats in result.get("telemetry", {}).items()
+            if stats.get("calls", 0) > 0
+        ]
 
-        results.append({
+        routing_correct = None
+        if expected_tools:
+            routing_correct = set(actual_tools) == set(expected_tools)
+
+        row = {
             "question": question,
             "category": category,
             "expected_tools": expected_tools,
-            "actual_tools": list(tools_used),
+            "actual_tools": actual_tools,
             "routing_correct": routing_correct,
-            "status": result["status"],
-            "steps_used": result["steps_used"],
-            "answer_preview": result["final_answer"][:150],
-            "elapsed_s": elapsed
-        })
+            "status": result.get("status", "unknown"),
+            "steps_used": result.get("steps_used", 0),
+            "answer_preview": result.get("final_answer", "")[:200],
+            "elapsed_s": elapsed,
+        }
+        results.append(row)
 
-        status_icon = "✓" if result["status"] == "answered" else "✗"
-        print(f"  [{status_icon}] Status: {result['status']} | Steps: {result['steps_used']} | {elapsed}s")
+        icon = "✓" if result.get("status") == "answered" else "✗"
+        print(
+            f"  [{icon}] Status: {row['status']} | "
+            f"Steps: {row['steps_used']} | "
+            f"Tools: {actual_tools} | "
+            f"{elapsed}s"
+        )
 
-    # Summary
-    print(f"\n{'='*60}")
+    print("\n" + "=" * 80)
     print("EVALUATION SUMMARY")
+
+    total = len(results)
     answered = sum(1 for r in results if r["status"] == "answered")
     refused = sum(1 for r in results if r["status"] == "refused")
+    direct = sum(1 for r in results if r["status"] == "direct_answer")
     cap_hit = sum(1 for r in results if r["status"] == "cap_exceeded")
-    print(f"  Answered   : {answered}/{len(results)}")
-    print(f"  Refused    : {refused}")
-    print(f"  Cap hit    : {cap_hit}")
+    scope = sum(1 for r in results if r["status"] == "scope_clarification")
 
-    correct_routing = [r for r in results if r["routing_correct"] is True]
-    print(f"  Correct tool routing: {len(correct_routing)}/{len(results)}")
+    print(f"Total      : {total}")
+    print(f"Answered   : {answered}")
+    print(f"Direct     : {direct}")
+    print(f"Refused    : {refused}")
+    print(f"Scope ask  : {scope}")
+    print(f"Cap hit    : {cap_hit}")
 
-    # Save results
+    routing_rows = [r for r in results if r["routing_correct"] is not None]
+    routing_ok = sum(1 for r in routing_rows if r["routing_correct"] is True)
+    if routing_rows:
+        print(f"Routing OK : {routing_ok}/{len(routing_rows)}")
+
     Path("eval").mkdir(exist_ok=True)
-    out_path = Path("eval/results.json")
-    with open(out_path, "w") as f:
-        json.dump(results, f, indent=2, default=str)
-    print(f"\nResults saved to {out_path}")
+
+    out_json = Path("eval/results.json")
+    with out_json.open("w", encoding="utf-8") as f:
+        json.dump(results, f, indent=2, ensure_ascii=False)
+
+    out_md = Path("eval/results.md")
+    with out_md.open("w", encoding="utf-8") as f:
+        f.write("# Evaluation Results\n\n")
+        for r in results:
+            f.write(f"## {r['question']}\n")
+            f.write(f"- Category: {r['category']}\n")
+            f.write(f"- Status: {r['status']}\n")
+            f.write(f"- Steps used: {r['steps_used']}\n")
+            f.write(f"- Expected tools: {r['expected_tools']}\n")
+            f.write(f"- Actual tools: {r['actual_tools']}\n")
+            f.write(f"- Routing correct: {r['routing_correct']}\n")
+            f.write(f"- Elapsed: {r['elapsed_s']}s\n")
+            f.write(f"- Answer preview: {r['answer_preview']}\n\n")
+
+    print(f"\nSaved: {out_json}")
+    print(f"Saved: {out_md}")
 
 
-def main():
+def clear_cache_cli() -> None:
+    from utils.cache import clear_cache
+
+    clear_cache()
+    print("Cache cleared.")
+
+
+def main() -> None:
     if len(sys.argv) < 2:
         print("Usage:")
         print("  python main.py 'your question'")
@@ -117,14 +189,23 @@ def main():
 
     arg = sys.argv[1]
 
-    if arg == "--eval":
-        run_eval()
-    elif arg == "--clear-cache":
-        from utils.cache import clear_cache
-        clear_cache()
-    else:
-        question = " ".join(sys.argv[1:])
-        run_single(question)
+    try:
+        if arg == "--eval":
+            run_eval()
+        elif arg == "--clear-cache":
+            clear_cache_cli()
+        else:
+            question = " ".join(sys.argv[1:]).strip()
+            if not question:
+                print("Question is empty.")
+                sys.exit(1)
+            run_single(question)
+    except KeyboardInterrupt:
+        print("\nInterrupted by user.")
+        sys.exit(1)
+    except Exception as exc:
+        print(f"\nFatal error: {exc}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

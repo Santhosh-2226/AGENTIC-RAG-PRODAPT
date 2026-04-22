@@ -60,7 +60,7 @@ def tokenize(text: str):
 # ────────────────────────────────────────────────────────
 # SEARCH
 # ────────────────────────────────────────────────────────
-def search(query, top_k=5):
+def search_docs(query, top_k=5):
     fi, chunks, bm25 = load_index()
     model = get_model()
 
@@ -167,7 +167,7 @@ def main():
             break
 
         print("\n🔍 Searching...")
-        results = search(q)
+        results = search_docs(q)
 
         if not results:
             print("⚠️ No results found\n")
