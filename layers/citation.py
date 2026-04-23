@@ -11,35 +11,39 @@ Web claim → URL + date.
 from memory.evidence import EvidenceMemory
 
 
-def bind_citations(answer_draft: dict, memory: EvidenceMemory) -> dict:
+def bind_citations(answer_draft, memory: EvidenceMemory):
     """
     Attach exact citation strings to the answer draft.
-    Returns updated answer_draft with 'citations' list populated.
+    Accepts str or dict. Always returns dict with 'citations' list populated.
     """
+    # Normalise — composer sometimes returns a plain string
+    if isinstance(answer_draft, str):
+        answer_draft = {"final_answer": answer_draft, "citations": []}
+
     citations = []
     all_sources = memory.all_sources()
 
     for source in all_sources:
-        if source["type"] == "document":
+        if source.get("type") == "document":
             citation = (
-                f"search_docs → {source['source']}, "
-                f"page {source['page']} (IPL {source['season']})"
+                f"search_docs → {source.get('source', 'unknown')}, "
+                f"page {source.get('page', '?')} (IPL {source.get('season', '?')})"
             )
             if citation not in citations:
                 citations.append(citation)
 
-        elif source["type"] == "database":
+        elif source.get("type") == "database":
             citation = (
-                f"query_data → {source['table']} table "
-                f"({source['row_count']} rows matched)"
+                f"query_data → {source.get('table', 'unknown')} table "
+                f"({source.get('row_count', '?')} rows matched)"
             )
             if citation not in citations:
                 citations.append(citation)
 
-        elif source["type"] == "web":
+        elif source.get("type") == "web":
             citation = (
-                f"web_search → {source['url']} "
-                f"(published {source['date']})"
+                f"web_search → {source.get('url', 'unknown')} "
+                f"(published {source.get('date', '?')})"
             )
             if citation not in citations:
                 citations.append(citation)

@@ -57,18 +57,19 @@ class EvidenceMemory:
     # ── Citation metadata ─────────────────────────────────────────────────
 
     def all_sources(self) -> list:
-        """
-        Returns all source metadata for the citation binder.
-        Each source has type + exact reference (file+page, table+row, url+date).
-        """
         sources = []
-
         for item in self.items:
             tool = item["tool"]
             result = item["result"]
 
+            # Guard: result must be a dict
+            if not isinstance(result, dict):
+                continue
+
             if tool == "search_docs":
                 for chunk in result.get("chunks", []):
+                    if not isinstance(chunk, dict):
+                        continue
                     sources.append({
                         "type": "document",
                         "source": chunk.get("source", "unknown"),
@@ -81,7 +82,7 @@ class EvidenceMemory:
             elif tool == "query_data":
                 sources.append({
                     "type": "database",
-                    "table": result.get("table", "unknown"),
+                    "table": result.get("source_table", result.get("table", "unknown")),
                     "sql": result.get("sql", ""),
                     "row_count": result.get("row_count", 0),
                     "question": result.get("question", "")
@@ -89,6 +90,8 @@ class EvidenceMemory:
 
             elif tool == "web_search":
                 for r in result.get("results", []):
+                    if not isinstance(r, dict):
+                        continue
                     sources.append({
                         "type": "web",
                         "url": r.get("url", ""),
