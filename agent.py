@@ -1,3 +1,6 @@
+"""
+agent.py - Fixed IPL Agentic RAG using Groq.
+"""
 
 import json
 import os
