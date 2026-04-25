@@ -59,8 +59,10 @@ Every single claim in every answer is bound to an **exact, verifiable source**:
 > If evidence is missing, the agent says so. **It never hallucinates.**
 
 ---
-
 ## 🏗️ Architecture
+
+> 📘 **Full Engineering Design Document:**  
+> [Open IPL Agentic RAG Design Document](docs/IPL_Agentic_RAG_Design_Document.pdf)
 
 ### High-Level System Overview
 
@@ -70,15 +72,13 @@ Every single claim in every answer is bound to an **exact, verifiable source**:
 
 **Full Pipeline Architecture** — 12-layer end-to-end flow with zone routing, tool selection, and post-processing:
 
-![Full Architecture](docs/architecture/architecture_full.png)
+[![Full Architecture](docs/architecture_images/architecture_full.png)](docs/IPL_Agentic_RAG_Design_Document.pdf)
 
 <br/>
 
 **Simplified Agent Loop** — Core decision cycle from query to final answer:
 
-![Simple Architecture](docs/architecture/architecture_simple.png)
-
----
+[![Simple Architecture](docs/architecture_images/architecture_simple.png)](docs/IPL_Agentic_RAG_Design_Document.pdf)
 
 ### Full 12-Layer Pipeline
 
