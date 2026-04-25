@@ -725,7 +725,7 @@ ipl-agentic-rag/
 | Edge case | 4 | 3/4 (75%) | 3/4 good |
 | **Total** | **20** | **16/20 (80%)** | **16/20** |
 
-Full results with actual agent outputs in [EVALUATION.md](EVALUATION.md).
+Full results with actual agent outputs in [EVALUATION.md](https://github.com/Santhosh-2226/AGENTIC-RAG-PRODAPT/blob/main/Evaluation.md).
 
 ---
 
