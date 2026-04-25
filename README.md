@@ -36,7 +36,7 @@
 Built for the **CIT Agentic RAG Internship Assignment — Option B (Sports Season Data)**.
 Corpus: **IPL 2022 and IPL 2023**.
 
-> **AI disclosure:** Claude (Anthropic) was used as a coding assistant. All architecture decisions, tool contracts, and agent loop design are my own. I can explain every line live during the interview.
+> **AI disclosure:** Claude (Anthropic) was used as a coding assistant. All architecture decisions, tool contracts, and agent loop design are my own.
 
 **Repository:** https://github.com/Santhosh-2226/AGENTIC-RAG-PRODAPT
 
