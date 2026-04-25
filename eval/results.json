@@ -1,0 +1,398 @@
+[
+  {
+    "id": 1,
+    "question": "Who scored the most runs in IPL 2023?",
+    "category": "single_tool",
+    "expected_tools": [
+      "query_data"
+    ],
+    "actual_tools": [
+      "query_data"
+    ],
+    "routing_correct": true,
+    "status": "answered",
+    "steps_used": 1,
+    "final_answer": "According to the statistical evidence from the IPL database, Shubman Gill scored the most runs in IPL 2023 with a total of 900 runs. This information is based on the top 5 run-scorers in the season, as retrieved from the database. No narrative or current/web evidence is available to provide additional context or confirmation.",
+    "answer_preview": "According to the statistical evidence from the IPL database, Shubman Gill scored the most runs in IPL 2023 with a total of 900 runs. This information is based on the top 5 run-scorers in the season, a",
+    "elapsed_s": 50.15,
+    "expected_behavior": "query_data runs. Returns Shubman Gill with ~916 runs. Minor variation may exist due to scoring differences."
+  },
+  {
+    "id": 2,
+    "question": "Which bowler took the most wickets in IPL 2022?",
+    "category": "single_tool",
+    "expected_tools": [
+      "query_data"
+    ],
+    "actual_tools": [
+      "search_docs",
+      "query_data"
+    ],
+    "routing_correct": false,
+    "status": "answered",
+    "steps_used": 2,
+    "final_answer": "Based on match reports / analyst documents (search_docs):\nFrom IPL2023.txt, p.11: \"491.html) ashwin (Rajasthan Royals) Chennai Super Kings won the toss and elected to field. match 18 (h) Punjab Kings v Gujarat Titans Gujarat Titans won by 6 13 april 2023 (20 overs) (19.5 overs) wickets 19:30 (n) matthew short 36 (24) Shubman Gill 67 (49) inderjit singh bindra stadium, mohali s:/ o…\"\nFrom IPl2022.txt, p.9: \"match 14 Mumbai Indians v Kolkata Knight Riders Kolkata Knight Riders won 6 april 2022 (20 overs) (16 overs) by 5 wickets 19:30 (n) suryakumar yadav 52 (36) pat cummins 56 (15) mca international stadium, pune murugan ashwin (3 umpires: k. n. s:/ overs) ananthapadmanabhan (ind) and cinfo.com/cifeng b…\"",
+    "answer_preview": "Based on match reports / analyst documents (search_docs):\nFrom IPL2023.txt, p.11: \"491.html) ashwin (Rajasthan Royals) Chennai Super Kings won the toss and elected to field. match 18 (h) Punjab Kings ",
+    "elapsed_s": 17.29,
+    "expected_behavior": "query_data runs. Returns Yuzvendra Chahal with ~29 wickets (may vary slightly across sources)."
+  },
+  {
+    "id": 3,
+    "question": "How many matches did Chennai Super Kings win in IPL 2023?",
+    "category": "single_tool",
+    "expected_tools": [
+      "query_data"
+    ],
+    "actual_tools": [
+      "search_docs",
+      "query_data"
+    ],
+    "routing_correct": false,
+    "status": "answered",
+    "steps_used": 2,
+    "final_answer": "Based on match reports / analyst documents (search_docs):\nFrom IPL2023.txt, p.2: \"on ie ae een es es i 25 years of the the 2023 indian premier league (also known as tata ipi. 2023 for sponsorship reasons and sometimes referred to as ipl 2023 or ipl 16) was the 16 th season of the indian premier league, a franchise twenty 20 cricket league in india. it is organised by the board of…\"\nFrom IPL_2023_Summary.txt, p.2: \"indian premier league 2023 summary season review based on coverage of the 2023 indian premier league and its linked final page. chamoion top sun-scorer top wicket-taker Chennai Super Kings Shubman Gill 890 Mohammed Shami 28 season overview the 2023 indian premier league was the 16 th ipl season. it…\"",
+    "answer_preview": "Based on match reports / analyst documents (search_docs):\nFrom IPL2023.txt, p.2: \"on ie ae een es es i 25 years of the the 2023 indian premier league (also known as tata ipi. 2023 for sponsorship reas",
+    "elapsed_s": 10.44,
+    "expected_behavior": "query_data runs. Returns ~10 matches including playoffs."
+  },
+  {
+    "id": 4,
+    "question": "What was Jos Buttler's strike rate in IPL 2022?",
+    "category": "single_tool",
+    "expected_tools": [
+      "query_data"
+    ],
+    "actual_tools": [
+      "search_docs",
+      "query_data"
+    ],
+    "routing_correct": false,
+    "status": "answered",
+    "steps_used": 2,
+    "final_answer": "Based on match reports / analyst documents (search_docs):\nFrom IPL2023.txt, p.38: \"news/trends/sports/ipi-2023-sanju-samson-fined-rs-12-lakh-for-slow-over-rate-10405881.html). money control, 13 april 2023, archived ( www, moneycontrol.com/news/trends/sports/ipi-2023-sanju-samson-fined-rs-12-lakh-for-slow-o ver-rate- 10405881.html) from the original on 27 april 2023, 63. time for t…\"\nFrom IPL2023.txt, p.27: \"issues slow over- rate in this ipi. season, matches took longer time to finish due to teams bowling at a slow over-rate. according to the ipl rules, an innings should be completed in 90 minutes, including two 5-minute strategic timeouts, and a complete match should be finished in stipulated 3 hours…\"",
+    "answer_preview": "Based on match reports / analyst documents (search_docs):\nFrom IPL2023.txt, p.38: \"news/trends/sports/ipi-2023-sanju-samson-fined-rs-12-lakh-for-slow-over-rate-10405881.html). money control, 13 april ",
+    "elapsed_s": 10.64,
+    "expected_behavior": "query_data runs. Computes strike rate ~144.80 from ball-by-ball data."
+  },
+  {
+    "id": 5,
+    "question": "Which bowler had the best economy rate in IPL 2022?",
+    "category": "single_tool",
+    "expected_tools": [
+      "query_data"
+    ],
+    "actual_tools": [
+      "search_docs",
+      "query_data"
+    ],
+    "routing_correct": false,
+    "status": "answered",
+    "steps_used": 2,
+    "final_answer": "Based on match reports / analyst documents (search_docs):\nFrom IPl2022.txt, p.30: \"32. 33 34. 35. 36. 37. 38 diatoday.in/sports/cricket/story/ipi-2022-auction-most-expensive-players-value-picks-and-uncap ped-heroes-1912579-2022-02-13). india today. archived ( 1404 1150/ indiatoday.in/sports/cricket/story/ipi-2022-auction-most-expensive-player s-value-picks-and-uncapped-heroes-1912…\"\nFrom IPL_2022_Summary.txt, p.4: \"player team matches runs best Jos Buttler Rajasthan Royals. 17 863 116 kl rahul Lucknow Super Giants 15 616 103 quinton de kock Lucknow Super Giants 15 608 140 hardik pandya Gujarat Titans 15 487 87 Shubman Gill Gujarat Titans 16 483 96 player team matches wickets best bowling yuzvendra chahal Rajas…\"",
+    "answer_preview": "Based on match reports / analyst documents (search_docs):\nFrom IPl2022.txt, p.30: \"32. 33 34. 35. 36. 37. 38 diatoday.in/sports/cricket/story/ipi-2022-auction-most-expensive-players-value-picks-and-un",
+    "elapsed_s": 10.57,
+    "expected_behavior": "query_data runs. Returns Sunil Narine with ~5.70 economy (filtered by minimum balls)."
+  },
+  {
+    "id": 6,
+    "question": "How many matches did Gujarat Titans win in IPL 2023?",
+    "category": "single_tool",
+    "expected_tools": [
+      "query_data"
+    ],
+    "actual_tools": [
+      "search_docs",
+      "query_data"
+    ],
+    "routing_correct": false,
+    "status": "answered",
+    "steps_used": 2,
+    "final_answer": "Based on match reports / analyst documents (search_docs):\nFrom IPL_2023_Summary.txt, p.5: \"the impact player rule was introduced. and plenty of players and analysts questioned how much it distorted team balance, especially the value of all-rounders. Gujarat Titans dominated the season statistically, topping the points table and sweeping several individual awards. but still lost the final.…\"\nFrom IPL2023.txt, p.2: \"on ie ae een es es i 25 years of the the 2023 indian premier league (also known as tata ipi. 2023 for sponsorship reasons and sometimes referred to as ipl 2023 or ipl 16) was the 16 th season of the indian premier league, a franchise twenty 20 cricket league in india. it is organised by the board of…\"",
+    "answer_preview": "Based on match reports / analyst documents (search_docs):\nFrom IPL_2023_Summary.txt, p.5: \"the impact player rule was introduced. and plenty of players and analysts questioned how much it distorted te",
+    "elapsed_s": 10.73,
+    "expected_behavior": "query_data runs. Returns ~11 matches from match dataset."
+  },
+  {
+    "id": 7,
+    "question": "What tactical changes did CSK use to win IPL 2023?",
+    "category": "single_tool",
+    "expected_tools": [
+      "search_docs"
+    ],
+    "actual_tools": [
+      "search_docs",
+      "query_data"
+    ],
+    "routing_correct": false,
+    "status": "answered",
+    "steps_used": 2,
+    "final_answer": "Based on match reports / analyst documents (search_docs):\nFrom IPL_2023_Summary.txt, p.2: \"indian premier league 2023 summary season review based on coverage of the 2023 indian premier league and its linked final page. chamoion top sun-scorer top wicket-taker Chennai Super Kings Shubman Gill 890 Mohammed Shami 28 season overview the 2023 indian premier league was the 16 th ipl season. it…\"\nFrom IPL2023.txt, p.2: \"on ie ae een es es i 25 years of the the 2023 indian premier league (also known as tata ipi. 2023 for sponsorship reasons and sometimes referred to as ipl 2023 or ipl 16) was the 16 th season of the indian premier league, a franchise twenty 20 cricket league in india. it is organised by the board of…\"",
+    "answer_preview": "Based on match reports / analyst documents (search_docs):\nFrom IPL_2023_Summary.txt, p.2: \"indian premier league 2023 summary season review based on coverage of the 2023 indian premier league and its ",
+    "elapsed_s": 10.77,
+    "expected_behavior": "search_docs runs. Extracts narrative insights like Chepauk advantage, Conway performance, and DLS final."
+  },
+  {
+    "id": 8,
+    "question": "What was significant about Gujarat Titans' performance in IPL 2022?",
+    "category": "single_tool",
+    "expected_tools": [
+      "search_docs"
+    ],
+    "actual_tools": [
+      "search_docs"
+    ],
+    "routing_correct": true,
+    "status": "answered",
+    "steps_used": 1,
+    "final_answer": "Based on match reports / analyst documents (search_docs):\nFrom IPL_2022_Summary.txt, p.2: \"indian premier league 2022 summary season review based on coverage of the 2022 indian premier league and its linked final page. chamoion top sun-scorer top wicket-taker Gujarat Titans Jos Buttler 863 yuzvendra chahal 27 season overview the 2022 indian premier league was the 15 th ipl season. it ran…\"\nFrom IPL_2022_Summary.txt, p.4: \"player team matches runs best Jos Buttler Rajasthan Royals. 17 863 116 kl rahul Lucknow Super Giants 15 616 103 quinton de kock Lucknow Super Giants 15 608 140 hardik pandya Gujarat Titans 15 487 87 Shubman Gill Gujarat Titans 16 483 96 player team matches wickets best bowling yuzvendra chahal Rajas…\"",
+    "answer_preview": "Based on match reports / analyst documents (search_docs):\nFrom IPL_2022_Summary.txt, p.2: \"indian premier league 2022 summary season review based on coverage of the 2022 indian premier league and its ",
+    "elapsed_s": 10.47,
+    "expected_behavior": "search_docs runs. Returns debut title win, 10 wins, Hardik Pandya performance."
+  },
+  {
+    "id": 9,
+    "question": "Who is the current captain of Mumbai Indians?",
+    "category": "single_tool",
+    "expected_tools": [
+      "web_search"
+    ],
+    "actual_tools": [
+      "web_search"
+    ],
+    "routing_correct": true,
+    "status": "partial_answer",
+    "steps_used": 1,
+    "final_answer": "The current captain of Mumbai Indians is Hardik Pandya. He returned to lead the team in 2024.",
+    "answer_preview": "The current captain of Mumbai Indians is Hardik Pandya. He returned to lead the team in 2024.",
+    "elapsed_s": 5.04,
+    "expected_behavior": "web_search runs. Returns current captain from live source with citation."
+  },
+  {
+    "id": 10,
+    "question": "What are the latest IPL 2024 or 2025 transfer or auction news?",
+    "category": "single_tool",
+    "expected_tools": [
+      "web_search"
+    ],
+    "actual_tools": [],
+    "routing_correct": false,
+    "status": "refused",
+    "steps_used": 0,
+    "final_answer": "This system only covers IPL 2022 and 2023. Data for IPL 2024 is not available in this corpus.",
+    "answer_preview": "This system only covers IPL 2022 and 2023. Data for IPL 2024 is not available in this corpus.",
+    "elapsed_s": 0.05,
+    "expected_behavior": "web_search runs. Returns recent IPL news snippets with URLs."
+  },
+  {
+    "id": 11,
+    "question": "How many runs did Virat Kohli score in IPL 2023 and what did analysts say about his batting form?",
+    "category": "multi_tool",
+    "expected_tools": [
+      "query_data",
+      "search_docs"
+    ],
+    "actual_tools": [
+      "search_docs",
+      "query_data"
+    ],
+    "routing_correct": true,
+    "status": "answered",
+    "steps_used": 2,
+    "final_answer": "Based on match reports / analyst documents (search_docs):\nFrom IPl2022.txt, p.14: \"ine/match/1304 (Rajasthan Royals) 080.htm! Delhi Capitals won the toss and elected to field. Jos Buttler (Rajasthan Royals) became the second player to score consecutive hundreds in the ipl, after shikhar dhawan. buttler also became the second player after Virat Kohli to score three or more centurie…\"\nFrom IPl2022.txt, p.22: \"partnership in the ipl.24 match 67 Gujarat Titans v royal challengers royal challengers 19 may 2022 (20 overs) bangalore bangalore won by 8 wickets 19:30 (n) (18.4 overs) wankhede stadium, mumbai scorecard (hitp hardik pandya 62 (47) _virat kohli 73 (54) umpires: k. n. si/ spncti josh hazlewood (4 r…\"",
+    "answer_preview": "Based on match reports / analyst documents (search_docs):\nFrom IPl2022.txt, p.14: \"ine/match/1304 (Rajasthan Royals) 080.htm! Delhi Capitals won the toss and elected to field. Jos Buttler (Rajasthan R",
+    "elapsed_s": 10.69,
+    "expected_behavior": "query_data runs first (returns ~657 runs). Then search_docs adds narrative like century, sixes, and key performer insights."
+  },
+  {
+    "id": 12,
+    "question": "Compare Rashid Khan and Mohammed Shami's wicket counts in IPL 2023 and what do match reports say about their impact?",
+    "category": "multi_tool",
+    "expected_tools": [
+      "query_data",
+      "search_docs"
+    ],
+    "actual_tools": [
+      "search_docs",
+      "query_data"
+    ],
+    "routing_correct": true,
+    "status": "answered",
+    "steps_used": 2,
+    "final_answer": "Based on match reports / analyst documents (search_docs):\nFrom IPL2023.txt, p.17: \"30 april 2023 (20 overs) (19.3 overs) wickets 19:30 (n) _ yashasvi jaiswal 124 (62) suryakumar yadav 55 (29) wankhede stadium, mumbai ravichandran ashwin umpires: virender sharma (ind) s:/ (4 overs) and vinod seshan (ind) cinfo.com/ci/eng player of the match: yashasvi ine/match/1359 jaiswal (Rajasth…\"\nFrom IPl2022.txt, p.14: \"ine/match/1304 (Rajasthan Royals) 080.htm! Delhi Capitals won the toss and elected to field. Jos Buttler (Rajasthan Royals) became the second player to score consecutive hundreds in the ipl, after shikhar dhawan. buttler also became the second player after Virat Kohli to score three or more centurie…\"",
+    "answer_preview": "Based on match reports / analyst documents (search_docs):\nFrom IPL2023.txt, p.17: \"30 april 2023 (20 overs) (19.3 overs) wickets 19:30 (n) _ yashasvi jaiswal 124 (62) suryakumar yadav 55 (29) wankhede",
+    "elapsed_s": 10.48,
+    "expected_behavior": "query_data returns both ~28 wickets. search_docs adds narrative (Purple Cap, GT dominance)."
+  },
+  {
+    "id": 13,
+    "question": "Which team won the most player-of-the-match awards in IPL 2023 and what do reports say about their season?",
+    "category": "multi_tool",
+    "expected_tools": [
+      "query_data",
+      "search_docs"
+    ],
+    "actual_tools": [
+      "search_docs",
+      "query_data"
+    ],
+    "routing_correct": true,
+    "status": "answered",
+    "steps_used": 2,
+    "final_answer": "Based on match reports / analyst documents (search_docs):\nFrom IPL_2023_Summary.txt, p.5: \"the impact player rule was introduced. and plenty of players and analysts questioned how much it distorted team balance, especially the value of all-rounders. Gujarat Titans dominated the season statistically, topping the points table and sweeping several individual awards. but still lost the final.…\"\nFrom IPl2022.txt, p.2: \"on ie ae een es es i 25 years of the the 2022 indian premier league (also known as ipi 15 or for sponsorship reasons, tata ipl 2022 indian premier league 2022)!2 was the fifteenth season of the indian i dates 26 march 29 may 2022 premier league (ipl), a professional twenty 20_ i administrator board…\"",
+    "answer_preview": "Based on match reports / analyst documents (search_docs):\nFrom IPL_2023_Summary.txt, p.5: \"the impact player rule was introduced. and plenty of players and analysts questioned how much it distorted te",
+    "elapsed_s": 10.46,
+    "expected_behavior": "query_data identifies top performers (Gill/Jaiswal). search_docs explains Gujarat Titans dominance and final loss."
+  },
+  {
+    "id": 14,
+    "question": "What is MS Dhoni's current IPL involvement and how did he perform statistically in IPL 2023?",
+    "category": "multi_tool",
+    "expected_tools": [
+      "web_search",
+      "query_data"
+    ],
+    "actual_tools": [
+      "web_search"
+    ],
+    "routing_correct": false,
+    "status": "partial_answer",
+    "steps_used": 1,
+    "final_answer": "MS Dhoni is set to play for Chennai Super Kings in IPL 2026. He will be both a player and mentor. Ruturaj Gaikwad is the current captain.",
+    "answer_preview": "MS Dhoni is set to play for Chennai Super Kings in IPL 2026. He will be both a player and mentor. Ruturaj Gaikwad is the current captain.",
+    "elapsed_s": 4.68,
+    "expected_behavior": "web_search fetches current status. query_data returns ~113 runs across matches."
+  },
+  {
+    "id": 15,
+    "question": "Who had the highest individual score in IPL 2023, and what do match reports say about that innings?",
+    "category": "multi_tool",
+    "expected_tools": [
+      "query_data",
+      "search_docs"
+    ],
+    "actual_tools": [
+      "search_docs",
+      "query_data"
+    ],
+    "routing_correct": true,
+    "status": "answered",
+    "steps_used": 2,
+    "final_answer": "Based on match reports / analyst documents (search_docs):\nFrom IPl2022.txt, p.32: \"48. 49 50. 51. 52. 53. oday.in/sports/ipi-2022/story/umran-malik-5-wicket-haul-gt-vs-srh-pace-fan-banner-wankhede- 1942727-2022-04-27). india today. 27 april 2022. archived ( 42718174 1/ pace-fan-banner-wankhede-1942727-2022-04-27) from the original on 27 april 2022. ipl 2022: Mumbai Indians, 5-time…\"\nFrom IPL2023.txt, p.27: \"issues slow over- rate in this ipi. season, matches took longer time to finish due to teams bowling at a slow over-rate. according to the ipl rules, an innings should be completed in 90 minutes, including two 5-minute strategic timeouts, and a complete match should be finished in stipulated 3 hours…\"",
+    "answer_preview": "Based on match reports / analyst documents (search_docs):\nFrom IPl2022.txt, p.32: \"48. 49 50. 51. 52. 53. oday.in/sports/ipi-2022/story/umran-malik-5-wicket-haul-gt-vs-srh-pace-fan-banner-wankhede- 19",
+    "elapsed_s": 10.55,
+    "expected_behavior": "query_data returns Yashasvi Jaiswal ~134. search_docs adds narrative (emerging player, match context)."
+  },
+  {
+    "id": 16,
+    "question": "Why did Royal Challengers Bangalore fail to win the IPL title in 2023, combining their match statistics and analyst reviews?",
+    "category": "multi_tool",
+    "expected_tools": [
+      "query_data",
+      "search_docs"
+    ],
+    "actual_tools": [
+      "search_docs",
+      "query_data"
+    ],
+    "routing_correct": true,
+    "status": "answered",
+    "steps_used": 2,
+    "final_answer": "Based on match reports / analyst documents (search_docs):\nFrom IPL2023.txt, p.2: \"on ie ae een es es i 25 years of the the 2023 indian premier league (also known as tata ipi. 2023 for sponsorship reasons and sometimes referred to as ipl 2023 or ipl 16) was the 16 th season of the indian premier league, a franchise twenty 20 cricket league in india. it is organised by the board of…\"\nFrom IPl2022.txt, p.2: \"on ie ae een es es i 25 years of the the 2022 indian premier league (also known as ipi 15 or for sponsorship reasons, tata ipl 2022 indian premier league 2022)!2 was the fifteenth season of the indian i dates 26 march 29 may 2022 premier league (ipl), a professional twenty 20_ i administrator board…\"",
+    "answer_preview": "Based on match reports / analyst documents (search_docs):\nFrom IPL2023.txt, p.2: \"on ie ae een es es i 25 years of the the 2023 indian premier league (also known as tata ipi. 2023 for sponsorship reas",
+    "elapsed_s": 10.44,
+    "expected_behavior": "query_data shows ~7 wins, 6th place. search_docs explains failure despite strong individual performances."
+  },
+  {
+    "id": 17,
+    "question": "Which team should I bet my money on to win IPL 2025?",
+    "category": "refusal",
+    "expected_tools": [],
+    "actual_tools": [],
+    "routing_correct": true,
+    "status": "refused",
+    "steps_used": 0,
+    "final_answer": "This system provides factual IPL cricket information only. It cannot make betting, fantasy, investment, or prediction recommendations.",
+    "answer_preview": "This system provides factual IPL cricket information only. It cannot make betting, fantasy, investment, or prediction recommendations.",
+    "elapsed_s": 0.01,
+    "expected_behavior": "Agent refuses. Explains it does not provide betting or predictive advice."
+  },
+  {
+    "id": 18,
+    "question": "What is the airspeed velocity of an unladen swallow?",
+    "category": "refusal",
+    "expected_tools": [],
+    "actual_tools": [],
+    "routing_correct": true,
+    "status": "refused",
+    "steps_used": 0,
+    "final_answer": "This system only answers IPL/cricket-related questions for the 2022 and 2023 seasons.",
+    "answer_preview": "This system only answers IPL/cricket-related questions for the 2022 and 2023 seasons.",
+    "elapsed_s": 0.02,
+    "expected_behavior": "Agent refuses. Marks question as out-of-scope (non-IPL)."
+  },
+  {
+    "id": 19,
+    "question": "How did IPL teams perform in 2019?",
+    "category": "refusal",
+    "expected_tools": [],
+    "actual_tools": [],
+    "routing_correct": true,
+    "status": "refused",
+    "steps_used": 0,
+    "final_answer": "This system only covers IPL 2022 and 2023. Data for IPL 2019 is not available in this corpus.",
+    "answer_preview": "This system only covers IPL 2022 and 2023. Data for IPL 2019 is not available in this corpus.",
+    "elapsed_s": 0.02,
+    "expected_behavior": "Agent refuses with scope clarification. Dataset only contains 2022–2023."
+  },
+  {
+    "id": 20,
+    "question": "What is Sachin Tendulkar's IPL 2023 century count?",
+    "category": "edge_case",
+    "expected_tools": [
+      "query_data"
+    ],
+    "actual_tools": [
+      "search_docs",
+      "query_data"
+    ],
+    "routing_correct": false,
+    "status": "answered",
+    "steps_used": 2,
+    "final_answer": "Based on match reports / analyst documents (search_docs):\nFrom IPL2023.txt, p.34: \"36. 37 38. 39. 40. ier-league-2023-1345038/gujarat-titans-vs-sunrisers-hyderabad-62 nd-match-1359536/match-r eport). espnericinfo. 15 may 2023. archived ( ps:/a ers-hyderabad-62 nd-match-1359536/match-report) from the original on 15 may 2023, stats - gill beats tendulkar s record to a six-less ipl f…\"\nFrom IPL2023.txt, p.33: \"29. 30 31. 32. 33, 34. s:// ata-knight-riders-match-against-mumbai-indians-mi-vs-kkr-2023-04-16-864051). india tv. 16 april 2023. archived ( m/sports/cricket/venkatesh-iyer-smashes-his-maiden-ipl-century-in-kolkata-knight-riders-match -against-mumbai-indians-mi-vs-kkr-2023-04-16-864051) from the ori…\"",
+    "answer_preview": "Based on match reports / analyst documents (search_docs):\nFrom IPL2023.txt, p.34: \"36. 37 38. 39. 40. ier-league-2023-1345038/gujarat-titans-vs-sunrisers-hyderabad-62 nd-match-1359536/match-r eport). ",
+    "elapsed_s": 10.64,
+    "expected_behavior": "query_data runs. Returns zero results or player not found. Agent explicitly states no data exists (retired player) without hallucination or fallback."
+  },
+  {
+    "id": 21,
+    "question": "Tell me everything about IPL 2023.",
+    "category": "edge_case",
+    "expected_tools": [],
+    "actual_tools": [],
+    "routing_correct": true,
+    "status": "scope_clarification",
+    "steps_used": 0,
+    "final_answer": "That's very broad. I can focus on one of these areas:\n• Batting performance\n• Bowling performance\n• Match results\n• Team analysis\n• Player profiles\n\nWhich aspect of IPL 2022 or 2023 would you like to explore?",
+    "answer_preview": "That's very broad. I can focus on one of these areas:\n• Batting performance\n• Bowling performance\n• Match results\n• Team analysis\n• Player profiles\n\nWhich aspect of IPL 2022 or 2023 would you like to ",
+    "elapsed_s": 0.02,
+    "expected_behavior": "Agent does not attempt full answer. Asks user to narrow scope (batting, bowling, teams, etc.)."
+  },
+  {
+    "id": 22,
+    "question": "How did Kohli do?",
+    "category": "edge_case",
+    "expected_tools": [
+      "query_data"
+    ],
+    "actual_tools": [
+      "search_docs"
+    ],
+    "routing_correct": false,
+    "status": "answered",
+    "steps_used": 1,
+    "final_answer": "Based on match reports / analyst documents (search_docs):\nFrom IPl2022.txt, p.22: \"partnership in the ipl.24 match 67 Gujarat Titans v royal challengers royal challengers 19 may 2022 (20 overs) bangalore bangalore won by 8 wickets 19:30 (n) (18.4 overs) wankhede stadium, mumbai scorecard (hitp hardik pandya 62 (47) _virat kohli 73 (54) umpires: k. n. si/ spncti josh hazlewood (4 r…\"\nFrom IPl2022.txt, p.14: \"ine/match/1304 (Rajasthan Royals) 080.htm! Delhi Capitals won the toss and elected to field. Jos Buttler (Rajasthan Royals) became the second player to score consecutive hundreds in the ipl, after shikhar dhawan. buttler also became the second player after Virat Kohli to score three or more centurie…\"",
+    "answer_preview": "Based on match reports / analyst documents (search_docs):\nFrom IPl2022.txt, p.22: \"partnership in the ipl.24 match 67 Gujarat Titans v royal challengers royal challengers 19 may 2022 (20 overs) bangal",
+    "elapsed_s": 10.58,
+    "expected_behavior": "Agent resolves ambiguity to IPL 2023. query_data returns ~657 runs and summarizes performance."
+  }
+]

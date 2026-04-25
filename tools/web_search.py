@@ -112,7 +112,7 @@ def web_search(query: str, reason: str) -> dict:
         base_response["query"] = query
 
     # 🟠 Orange Cap detection
-    orange_cap_kw = ["orange cap", "most runs", "top scorer", "leading run", "highest run"]
+    orange_cap_kw = ["orange cap", "top scorer", "leading run scorer"]
     if any(kw in query.lower() for kw in orange_cap_kw):
         answer = fetch_orange_cap_from_cricbuzz()  # try scraping first
         if not answer:

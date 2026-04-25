@@ -138,10 +138,10 @@ def classify_question(question: str) -> str:
     if "most wickets" in q or "top wicket" in q or "leading wicket" in q:
         return "top_wicket_taker"
 
-    if ("winner" in q or "won" in q) and "ipl" in q:
+    if ("winner" in q or "won" in q or "which team" in q) and ("ipl" in q or "season" in q):
         return "season_winner"
 
-    if "highest score" in q or "highest individual score" in q:
+    if ("highest score" in q or "highest individual score" in q):
         return "highest_individual_score"
 
     if "how many matches" in q and "win" in q:
@@ -158,6 +158,15 @@ def classify_question(question: str) -> str:
 
     if "final" in q and "winner" in q:
         return "final_winner"
+    
+    if "wicket" in q and resolve_player(question):
+        return "player_wickets"
+
+    if "century" in q and resolve_player(question):
+        return "player_centuries"
+
+    if "best player" in q or "player of the tournament" in q or "most valuable player" in q:
+        return "player_of_tournament"
 
     return "unknown"
 
@@ -179,7 +188,20 @@ def build_sql(question: str) -> Tuple[Optional[str], Optional[Tuple], Optional[s
         LIMIT 5
         """
         return sql, (year,), "deliveries"
+    
 
+    if qtype == "player_wickets" and year and player:
+        placeholders = ",".join(["?"] * len(WICKET_EXCLUDE_KINDS))
+        sql = f"""
+    SELECT bowler AS player, COUNT(*) AS wickets
+    FROM deliveries
+    WHERE season = ?
+      AND bowler = ?
+      AND is_wicket = 1
+      AND (dismissal_kind IS NULL OR LOWER(dismissal_kind) NOT IN ({placeholders}))
+    GROUP BY bowler
+    """
+    return sql, (year, player, *WICKET_EXCLUDE_KINDS), "deliveries"
     if qtype == "top_wicket_taker" and year:
         placeholders = ",".join(["?"] * len(WICKET_EXCLUDE_KINDS))
         sql = f"""

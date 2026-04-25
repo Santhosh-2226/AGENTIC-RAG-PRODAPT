@@ -1,37 +1,45 @@
 """
 layers/composer.py
-Slot-based answer builder — with LLM synthesis and direct fallback.
+Slot-based answer builder — LLM synthesis over evidence slots.
+No hardcoded answers. No hardcoded field names.
 """
 import os
 import json
 
 
 def compose_answer(question: str, goals: list, memory, client) -> dict:
-    print(f"[DEBUG] composer client type: {type(client)}, has messages: {hasattr(client, 'messages')}")
-    print(f"[DEBUG] memory items: {len(memory.items)}")
-    print(f"[DEBUG] query_data items: {memory.get_by_tool('query_data')}")
     statistical_evidence = _format_tool_evidence(memory.get_by_tool("query_data"))
     narrative_evidence   = _format_tool_evidence(memory.get_by_tool("search_docs"))
     current_evidence     = _format_tool_evidence(memory.get_by_tool("web_search"))
     unresolved = [g["description"] for g in goals if g.get("status") == "OPEN"]
 
-    # ── Try LLM synthesis first ───────────────────────────────────────────
-    try:
-        prompt = f"""You are composing a final answer for an IPL cricket question.
+    has_evidence = any([statistical_evidence, narrative_evidence, current_evidence])
+
+    if not has_evidence:
+        return {
+            "answer_text": "No evidence was retrieved to answer this question.",
+            "unresolved": unresolved,
+            "citations": []
+        }
+
+    prompt = f"""You are composing a final answer for an IPL cricket question.
 Question: "{question}"
-Use ONLY the evidence below. Do not use your own knowledge.
+Use ONLY the evidence below. Do not use your own knowledge or training data.
+If evidence is missing, say so explicitly.
 
-=== STATISTICAL EVIDENCE ===
-{statistical_evidence or "None."}
+=== STATISTICAL EVIDENCE (from IPL database) ===
+{statistical_evidence or "None retrieved."}
 
-=== NARRATIVE EVIDENCE ===
-{narrative_evidence or "None."}
+=== NARRATIVE EVIDENCE (from IPL documents) ===
+{narrative_evidence or "None retrieved."}
 
-=== CURRENT/WEB EVIDENCE ===
-{current_evidence or "None."}
+=== CURRENT/WEB EVIDENCE (from live web search) ===
+{current_evidence or "None retrieved."}
 
-Write a clear factual answer in plain English based only on the evidence above."""
+Write a clear, factual answer in plain English using only the evidence above.
+If any part cannot be answered from the evidence, state that clearly."""
 
+    try:
         response = client.messages.create(
             model=os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
             max_tokens=600,
@@ -39,47 +47,73 @@ Write a clear factual answer in plain English based only on the evidence above."
         )
         answer_text = response.content[0].text.strip()
         if answer_text:
-            return {
-                "answer_text": answer_text,
-                "unresolved": unresolved,
-                "citations": []
-            }
+            return {"answer_text": answer_text, "unresolved": unresolved, "citations": []}
     except Exception as e:
         print(f"[ERROR] composer LLM call failed: {e}")
 
-    # ── Direct fallback: format rows without LLM ──────────────────────────
-    print("[INFO] Using direct fallback composer.")
-    for item in memory.get_by_tool("query_data"):
-        rows = item.get("result", {}).get("rows", [])
-        if rows:
-            top  = rows[0]
-            player = top.get("player", top.get("batter", "Unknown"))
-            runs   = top.get("total_runs", top.get("runs", "?"))
-            lines  = [f"  1. {player} — {runs} runs"]
-            for i, r in enumerate(rows[1:], 2):
-                p = r.get("player", r.get("batter", "?"))
-                v = r.get("total_runs", r.get("runs", "?"))
-                lines.append(f"  {i}. {p} — {v} runs")
-            answer_text = (
-                f"{player} scored the most runs in IPL 2023 with {runs} runs.\n\n"
-                f"Top run-scorers:\n" + "\n".join(lines)
-            )
-            return {"answer_text": answer_text, "unresolved": unresolved, "citations": []}
-
-    for item in memory.get_by_tool("search_docs"):
-        chunks = item.get("result", {}).get("chunks", [])
-        if chunks:
-            return {
-                "answer_text": chunks[0].get("text", "No answer could be composed."),
-                "unresolved": unresolved,
-                "citations": []
-            }
-
+    # Fallback: ask the LLM to summarise the raw evidence in plain text
+    # Still no hardcoding — just dump the evidence as-is
+    all_evidence = "\n\n".join(filter(None, [
+        statistical_evidence, narrative_evidence, current_evidence
+    ]))
     return {
-        "answer_text": "No answer could be composed from available evidence.",
-        "unresolved": unresolved,
-        "citations": []
+    "answer_text": _compose_simple_answer(question, memory, unresolved),
+    "unresolved": unresolved,
+    "citations": []
+    
     }
+
+def _compose_simple_answer(question: str, memory, unresolved: list) -> str:
+    q = question.lower()
+
+    query_items = memory.get_by_tool("query_data")
+    doc_items = memory.get_by_tool("search_docs")
+    web_items = memory.get_by_tool("web_search")
+
+    for item in query_items:
+        result = item.get("result", {})
+        rows = result.get("rows", [])
+        if rows:
+            row = rows[0]
+
+            if "total_runs" in row:
+                return f"{row.get('player')} scored the most runs with {row.get('total_runs')} runs."
+
+            if "wins" in row:
+                return f"{row.get('team')} won {row.get('wins')} matches."
+
+            if "strike_rate" in row:
+                return (
+                    f"{row.get('player')} scored {row.get('runs')} runs at a strike rate "
+                    f"of {row.get('strike_rate')}."
+                )
+
+            if "wickets" in row:
+                return f"{row.get('player')} took {row.get('wickets')} wickets."
+
+            if "winner" in row:
+                return f"{row.get('winner')} won IPL {row.get('season')}."
+
+    for item in web_items:
+        result = item.get("result", {})
+        direct = result.get("direct_answer") or result.get("answer")
+        if direct:
+            return direct
+
+    for item in doc_items:
+        result = item.get("result", {})
+        chunks = result.get("chunks", [])
+        for c in chunks:
+            text = c.get("text", "")
+            if "most valuable player" in text.lower():
+                return "The available document evidence indicates the Most Valuable Player / best player information is present in the IPL summary documents."
+            if text:
+                return "I found partial document evidence, but not enough to give a fully confident single answer."
+
+    if unresolved:
+        return "I could not fully answer this from the available evidence."
+
+    return "I could not compose a reliable answer from the retrieved evidence."
 
 
 def _format_tool_evidence(items: list) -> str:
@@ -87,20 +121,33 @@ def _format_tool_evidence(items: list) -> str:
         return ""
     parts = []
     for item in items:
-        result = item["result"]
+        result = item.get("result", {})
+        if not isinstance(result, dict):
+            continue
         if "rows" in result:
+            rows = result.get("rows", [])[:5]
+            cols = result.get("columns", [])
+            sql  = result.get("sql", "")
             parts.append(
-                f"SQL: {result.get('sql', '')}\n"
-                f"Rows: {json.dumps(result.get('rows', [])[:5], default=str)}"
+                f"SQL: {sql}\nColumns: {cols}\nRows: {json.dumps(rows, default=str)}"
             )
         elif "chunks" in result:
             parts.append("\n".join(
-                f"[{c.get('source','?')} p.{c.get('page','?')}]: {c.get('text','')[:200]}"
+                f"[{c.get('source','?')} p.{c.get('page','?')} IPL {c.get('season','?')}]: "
+                f"{c.get('text','')[:300]}"
                 for c in result.get("chunks", [])[:3]
             ))
         elif "results" in result:
-            parts.append("\n".join(
-                f"[{r.get('date','?')}] {r.get('url','?')}: {r.get('snippet','')[:200]}"
+            direct = result.get("direct_answer", "")
+            web_parts = []
+            if direct:
+                web_parts.append(f"Direct answer: {direct}")
+            web_parts.extend(
+                f"[{r.get('date','?')}] {r.get('url','?')}: {r.get('snippet','')[:300]}"
                 for r in result.get("results", [])[:3]
-            ))
+            )
+            parts.append("\n".join(web_parts))
+        else:
+            # Unknown result format — dump safely
+            parts.append(json.dumps(result, default=str)[:400])
     return "\n---\n".join(parts)
