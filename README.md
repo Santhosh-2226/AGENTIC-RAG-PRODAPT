@@ -64,6 +64,9 @@ Every single claim in every answer is bound to an **exact, verifiable source**:
 > 📘 **Full Engineering Design Document:**  
 > [Open IPL Agentic RAG Design Document](docs/IPL_Agentic_RAG_Design_Document.pdf)
 
+> 🎥 **Demo Video:**  
+> [Watch Project Demo](https://drive.google.com/file/d/1-s-X8bRYF3oXA2YJ56Ak8yrPO687tqhn/view?usp=drive_link)
+
 ### High-Level System Overview
 
 > Two views of the same system — a detailed pipeline view and a simplified agent loop view.
