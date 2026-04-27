@@ -62,7 +62,7 @@ Every single claim in every answer is bound to an **exact, verifiable source**:
 ## 🏗️ Architecture
 
 > 📘 **Full Engineering Design Document:**  
-> [Open IPL Agentic RAG Design Document](docs/IPL_Agentic_RAG_Design_Document.pdf)
+> [Open IPL Agentic RAG Design Document](https://drive.google.com/file/d/13ALEGcQS9DOp2JFdKz0YNv8AqXTCeSox/view?usp=sharing)
 
 > 🎥 **Demo Video:**  
 > [Watch Project Demo](https://drive.google.com/file/d/1-s-X8bRYF3oXA2YJ56Ak8yrPO687tqhn/view?usp=drive_link)
